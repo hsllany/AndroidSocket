@@ -11,4 +11,7 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.CLASS)
 public @interface MessageAnnotation {
+    int code() default 0;
+
+    MessageType type() default MessageType.ALL;
 }

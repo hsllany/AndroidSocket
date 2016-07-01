@@ -1,9 +1,7 @@
 package com.ubirouting.instantmsg.msgs;
 
 import com.ubirouting.instantmsg.msgdispatcher.Findable;
-import com.ubirouting.instantmsg.processor.MessageAnnotation;
 
-@MessageAnnotation
 public abstract class MessageImp implements Message {
 
     MessageId mId;
