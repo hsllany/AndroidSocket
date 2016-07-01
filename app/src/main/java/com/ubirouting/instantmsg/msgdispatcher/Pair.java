@@ -1,4 +1,4 @@
-package com.ubirouting.mozzservicecommunicator.msgdispatcher;
+package com.ubirouting.instantmsg.msgdispatcher;
 
 /**
  * @author Yang Tao on 16/6/21.

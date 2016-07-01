@@ -1,6 +1,8 @@
-package com.ubirouting.mozzservicecommunicator.msgdispatcher;
+package com.ubirouting.instantmsg.msgdispatcher;
 
 import android.util.Log;
+
+import com.ubirouting.instantmsg.msgs.MessageImp;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -29,15 +31,15 @@ public class FindableDispatcher {
 
     private final WeakHashMap<Findable, Object> sFindables = new WeakHashMap<>();
 
-    private final Map<Class<? extends Message>, WeakList<Findable>> sTypeFindables = new HashMap<>();
+    private final Map<Class<? extends MessageImp>, WeakList<Findable>> sTypeFindables = new HashMap<>();
 
-    public synchronized void register(Findable activity, Message message) {
+    public synchronized void register(Findable activity, MessageImp message) {
         synchronized (sFindables) {
             sFindables.put(activity, this);
         }
     }
 
-    public void register(Findable activity, Class<? extends Message> messageType) {
+    public void register(Findable activity, Class<? extends MessageImp> messageType) {
         synchronized (sTypeFindables) {
             WeakList<Findable> list = sTypeFindables.get(messageType);
             if (list == null) {
@@ -50,7 +52,7 @@ public class FindableDispatcher {
         }
     }
 
-    public void dispatch(Message message) {
+    public void dispatch(MessageImp message) {
 
         Findable target = null;
         synchronized (sFindables) {

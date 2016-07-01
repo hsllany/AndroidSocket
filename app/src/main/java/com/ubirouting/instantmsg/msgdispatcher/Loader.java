@@ -1,7 +1,9 @@
-package com.ubirouting.mozzservicecommunicator.msgdispatcher;
+package com.ubirouting.instantmsg.msgdispatcher;
 
 import android.content.Context;
 import android.telephony.TelephonyManager;
+
+import com.ubirouting.instantmsg.msgs.MessageId;
 
 /**
  * @author Yang Tao on 16/6/21.

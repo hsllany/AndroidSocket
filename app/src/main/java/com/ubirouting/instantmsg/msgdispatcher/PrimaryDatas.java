@@ -1,4 +1,4 @@
-package com.ubirouting.mozzservicecommunicator.msgdispatcher;
+package com.ubirouting.instantmsg.msgdispatcher;
 
 import java.nio.ByteBuffer;
 

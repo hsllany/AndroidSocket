@@ -1,4 +1,4 @@
-package com.ubirouting.mozzservicecommunicator;
+package com.ubirouting.instantmsg;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;

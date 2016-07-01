@@ -1,4 +1,4 @@
-package com.ubirouting.mozzservicecommunicator;
+package com.ubirouting.instantmsg;
 
 import android.app.Service;
 import android.content.Intent;
@@ -6,8 +6,8 @@ import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
-import com.ubirouting.mozzservicecommunicator.msgdispatcher.FindableDispatcher;
-import com.ubirouting.mozzservicecommunicator.msgdispatcher.Message;
+import com.ubirouting.instantmsg.msgdispatcher.FindableDispatcher;
+import com.ubirouting.instantmsg.msgs.MessageImp;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -23,7 +23,7 @@ public class MessageService extends Service {
         return instance;
     }
 
-    BlockingQueue<Message> messageQueue = new LinkedBlockingQueue<>(23);
+    BlockingQueue<MessageImp> messageQueue = new LinkedBlockingQueue<>(23);
     DispacherThread mDispatcherThread = new DispacherThread();
 
     @Override
@@ -42,7 +42,7 @@ public class MessageService extends Service {
         return null;
     }
 
-    public void sendMessage(Message message) {
+    public void sendMessage(MessageImp message) {
         try {
             messageQueue.put(message);
         } catch (InterruptedException e) {
@@ -59,10 +59,10 @@ public class MessageService extends Service {
 
                 try {
 
-                    Message msg = null;
+                    MessageImp msg = null;
 
                     msg = messageQueue.take();
-                    Log.d("MessageService", "get Message");
+                    Log.d("MessageService", "get MessageImp");
 
 
                     if (msg != null)

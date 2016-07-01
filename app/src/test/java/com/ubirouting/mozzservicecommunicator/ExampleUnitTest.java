@@ -1,4 +1,4 @@
-package com.ubirouting.mozzservicecommunicator;
+package com.ubirouting.instantmsg;
 
 import org.junit.Test;
 

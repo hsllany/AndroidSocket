@@ -1,4 +1,7 @@
-package com.ubirouting.mozzservicecommunicator.msgdispatcher;
+package com.ubirouting.instantmsg.msgs;
+
+import com.ubirouting.instantmsg.msgdispatcher.Findable;
+import com.ubirouting.instantmsg.msgdispatcher.PrimaryDatas;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -9,7 +12,7 @@ public final class MessageId {
 
     private static AtomicInteger sCounter = new AtomicInteger(0);
 
-    static long MACHINE_CODE;
+    public static long MACHINE_CODE;
 
     private final long timestamp;
     private final int pid;

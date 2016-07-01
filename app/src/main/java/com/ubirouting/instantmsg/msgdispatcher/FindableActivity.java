@@ -1,9 +1,12 @@
-package com.ubirouting.mozzservicecommunicator.msgdispatcher;
+package com.ubirouting.instantmsg.msgdispatcher;
 
+import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
-import com.ubirouting.mozzservicecommunicator.MessageService;
+import com.ubirouting.instantmsg.MessageService;
+import com.ubirouting.instantmsg.msgs.MessageImp;
+import com.ubirouting.instantmsg.msgs.MessageId;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -15,11 +18,11 @@ import java.util.Map;
 public abstract class FindableActivity extends AppCompatActivity implements Findable {
 
     private final Map<MessageId, MessageConsumeListener> mListenerList = new HashMap<>();
-    private final Map<Class<? extends Message>, MessageConsumeListener> mTypeList = new HashMap<>();
+    private final Map<Class<? extends MessageImp>, MessageConsumeListener> mTypeList = new ArrayMap<>();
 
     private final long id = System.currentTimeMillis();
 
-    public final void sendMessage(Message msg, MessageConsumeListener l) {
+    public final void sendMessage(MessageImp msg, MessageConsumeListener l) {
         msg.generateMessageId(this);
         synchronized (mListenerList) {
             mListenerList.put(msg.getMessageId(), l);
@@ -29,7 +32,7 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
         MessageService.getInstance().sendMessage(msg);
     }
 
-    public final void registerListener(Class<? extends Message> msgClass, MessageConsumeListener l) {
+    public final void registerListener(Class<? extends MessageImp> msgClass, MessageConsumeListener l) {
         synchronized (mTypeList) {
             mTypeList.put(msgClass, l);
         }
@@ -49,7 +52,7 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
     }
 
     @Override
-    public final void execute(final Message msg) {
+    public final void execute(final MessageImp msg) {
 
         Log.d("LALA", this.toString() + "," + msg.toString());
 
@@ -73,9 +76,9 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
 
 
         synchronized (mTypeList) {
-            Iterator<Map.Entry<Class<? extends Message>, MessageConsumeListener>> itr2 = mTypeList.entrySet().iterator();
+            Iterator<Map.Entry<Class<? extends MessageImp>, MessageConsumeListener>> itr2 = mTypeList.entrySet().iterator();
             while (itr2.hasNext()) {
-                final Map.Entry<Class<? extends Message>, MessageConsumeListener> entry = itr2.next();
+                final Map.Entry<Class<? extends MessageImp>, MessageConsumeListener> entry = itr2.next();
 
                 if (entry.getKey().equals(msg.getClass())) {
                     runOnUiThread(new Runnable() {

@@ -1,9 +1,10 @@
-package com.ubirouting.mozzservicecommunicator.msgdispatcher;
+package com.ubirouting.instantmsg.msgs;
 
-/**
- * @author Yang Tao on 16/6/20.
- */
-public class Message {
+import com.ubirouting.instantmsg.msgdispatcher.Findable;
+import com.ubirouting.instantmsg.processor.MessageAnnotation;
+
+@MessageAnnotation
+public abstract class MessageImp implements Message {
 
     MessageId mId;
 
@@ -19,6 +20,4 @@ public class Message {
     public MessageId getMessageId() {
         return mId;
     }
-
-
 }
