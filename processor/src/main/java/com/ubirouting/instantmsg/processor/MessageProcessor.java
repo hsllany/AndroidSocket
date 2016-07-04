@@ -1,7 +1,13 @@
 package com.ubirouting.instantmsg.processor;
 
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterSpec;
+import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.TypeSpec;
+
 import java.io.IOException;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -16,10 +22,12 @@ import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-import javax.tools.JavaFileObject;
+import javax.tools.Diagnostic;
 
 /**
  * @author Yang Tao on 16/7/1.
@@ -33,6 +41,8 @@ public class MessageProcessor extends AbstractProcessor {
     private Filer filer;
     private Messager messager;
 
+    private static final ClassName MESSAGE_TYPE = ClassName.get("com.ubirouting.instantmsg.msgs", "Message");
+
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
@@ -43,56 +53,88 @@ public class MessageProcessor extends AbstractProcessor {
         messager = processingEnv.getMessager();
     }
 
-    private List<Element> messageAnnotationList = new ArrayList<>();
+    private List<MessageClass> messageAnnotationList = new ArrayList<>();
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
 
-        for (Element annotationElement : roundEnv.getElementsAnnotatedWith(MessageAnnotation.class)) {
-            System.out.println(annotationElement.toString());
+        Class<MessageAnnotation> msgClass = MessageAnnotation.class;
+        for (Element element : roundEnv.getElementsAnnotatedWith(msgClass)) {
+            System.out.println(element.toString());
 
-            if (annotationElement.getKind() == ElementKind.CLASS) {
-                messageAnnotationList.add(annotationElement);
+            // check this element is a class and its package is com.ubirouting.instantmsg
+            if (!isValid(element)) {
+                return true;
+            }
+
+
+            messageAnnotationList.add(new MessageClass(element, element.getAnnotation(MessageAnnotation.class)));
+
+        }
+
+        buildMessageFactoryJava();
+        return true;
+    }
+
+    private void findMsgType(Element element) {
+
+
+    }
+
+    private boolean isValid(Element element) {
+        if (element.getKind() != ElementKind.CLASS) {
+            error(element, "only class can be annotated with @%s", MessageAnnotation.class.getSimpleName());
+            return false;
+        }
+
+        if (element.getModifiers().contains(Modifier.ABSTRACT)) {
+            error(element, "abstract class can not be annotated with @%s", MessageAnnotation.class.getSimpleName());
+            return false;
+        }
+
+        if (!element.getModifiers().contains(Modifier.PUBLIC)) {
+            error(element, "class should be public if you want to annotate it with @%s", MessageAnnotation.class.getSimpleName());
+            return false;
+        }
+
+        for (Element subElement : element.getEnclosedElements()) {
+            if (subElement.getKind() == ElementKind.CONSTRUCTOR) {
+                ExecutableElement constructElement = (ExecutableElement) subElement;
+
+                if (constructElement.getModifiers().contains(Modifier.PUBLIC) && constructElement.getParameters().size() == 0)
+                    return true;
             }
         }
 
-        StringBuilder builder = new StringBuilder()
-                .append("package com.ubirouting.instantmsg.msgs;\n\n")
-                .append("public class MessageFactory {\n\n") // open class
-                .append("\tpublic String getMessage() {\n") // open method
-                .append("\t\treturn \"");
+        error(element, "class should have at least one public constructor with no parameters");
+        return false;
+    }
 
+    private boolean buildMessageFactoryJava() {
+        try {
 
-        // for each javax.lang.model.element.Element annotated with the CustomAnnotation
-        for (Element element : roundEnv.getElementsAnnotatedWith(MessageAnnotation.class)) {
-            String objectType = element.getSimpleName().toString();
+            StringBuilder sb = new StringBuilder();
+            for (MessageClass messageClass : messageAnnotationList) {
+                sb.append("case ").append(messageClass.code).append(":\n").append("return new ").append(messageClass.className).append("();\n");
+            }
 
+            MethodSpec methodSpec = MethodSpec.methodBuilder("buildWithCode").addModifiers(Modifier.PUBLIC, Modifier.STATIC).
+                    addParameter(ParameterSpec.builder(TypeName.INT, "msgCode").build()).
+                    addStatement("switch(msgCode){\n" + sb.toString() + "}\n" +
+                            "return null").returns(MESSAGE_TYPE).build();
 
-            // this is appending to the return statement
-            builder.append(objectType).append(" says hello!\\n");
-        }
-
-
-        builder.append("\";\n") // end return
-                .append("\t}\n") // close method
-                .append("}\n"); // close class
-
-
-        try { // write the file
-            JavaFileObject source = processingEnv.getFiler().createSourceFile("com.ubirouting.instantmsg.msgs.MessageFactory");
-
-
-            Writer writer = source.openWriter();
-            writer.write(builder.toString());
-            writer.flush();
-            writer.close();
+            TypeSpec factorType = TypeSpec.classBuilder("MessageFactory").addModifiers(Modifier.PUBLIC, Modifier.FINAL).addMethod(methodSpec).build();
+            JavaFile javaFile = JavaFile.builder("com.ubirouting.instantmsg.msgs", factorType).build();
+            javaFile.writeTo(filer);
         } catch (IOException e) {
-//            e.printStackTrace();
-            // Note: calling e.printStackTrace() will print IO errors
-            // that occur from the file already existing after its first run, this is normal
+            e.printStackTrace();
+            return false;
         }
-
 
         return true;
+    }
+
+    private void error(Element e, String msg, Object... args) {
+        messager.printMessage(Diagnostic.Kind.ERROR, String.format(msg, args), e);
     }
 }
