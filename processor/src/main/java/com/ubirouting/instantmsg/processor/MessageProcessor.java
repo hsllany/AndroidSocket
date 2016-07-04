@@ -9,6 +9,7 @@ import com.squareup.javapoet.TypeSpec;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -25,6 +26,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
@@ -34,7 +36,7 @@ import javax.tools.Diagnostic;
  */
 @SupportedAnnotationTypes("com.ubirouting.instantmsg.processor.MessageAnnotation")
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
-public class MessageProcessor extends AbstractProcessor {
+public final class MessageProcessor extends AbstractProcessor {
 
     private Types typeUtils;
     private Elements elementUtils;
@@ -54,13 +56,15 @@ public class MessageProcessor extends AbstractProcessor {
     }
 
     private List<MessageClass> messageAnnotationList = new ArrayList<>();
+    private Set<Integer> codeSet = new HashSet<>();
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
 
+        messageAnnotationList.clear();
+
         Class<MessageAnnotation> msgClass = MessageAnnotation.class;
         for (Element element : roundEnv.getElementsAnnotatedWith(msgClass)) {
-            System.out.println(element.toString());
 
             // check this element is a class and its package is com.ubirouting.instantmsg
             if (!isValid(element)) {
@@ -69,16 +73,12 @@ public class MessageProcessor extends AbstractProcessor {
 
 
             messageAnnotationList.add(new MessageClass(element, element.getAnnotation(MessageAnnotation.class)));
+            codeSet.add(element.getAnnotation(MessageAnnotation.class).code());
 
         }
 
         buildMessageFactoryJava();
         return true;
-    }
-
-    private void findMsgType(Element element) {
-
-
     }
 
     private boolean isValid(Element element) {
@@ -94,6 +94,28 @@ public class MessageProcessor extends AbstractProcessor {
 
         if (!element.getModifiers().contains(Modifier.PUBLIC)) {
             error(element, "class should be public if you want to annotate it with @%s", MessageAnnotation.class.getSimpleName());
+            return false;
+        }
+
+        boolean isMessageType = false;
+
+
+        TypeElement typeElement = (TypeElement) element;
+        List interfaces = typeElement.getInterfaces();
+        for (Object object : interfaces) {
+            TypeMirror mirror = (TypeMirror) object;
+            if (mirror.toString().equals("com.ubirouting.instantmsg.msgs.Message")) {
+                isMessageType = true;
+            }
+        }
+
+        if (!isMessageType) {
+            error(element, "class should implement Message interface");
+            return false;
+        }
+
+        if (codeSet.contains(element.getAnnotation(MessageAnnotation.class).code())) {
+            error(element, "code can't be the same");
             return false;
         }
 
@@ -127,7 +149,6 @@ public class MessageProcessor extends AbstractProcessor {
             JavaFile javaFile = JavaFile.builder("com.ubirouting.instantmsg.msgs", factorType).build();
             javaFile.writeTo(filer);
         } catch (IOException e) {
-            e.printStackTrace();
             return false;
         }
 
@@ -136,5 +157,9 @@ public class MessageProcessor extends AbstractProcessor {
 
     private void error(Element e, String msg, Object... args) {
         messager.printMessage(Diagnostic.Kind.ERROR, String.format(msg, args), e);
+    }
+
+    private void info(Element e, String msg, Object... args) {
+        messager.printMessage(Diagnostic.Kind.NOTE, String.format(msg, args), e);
     }
 }
