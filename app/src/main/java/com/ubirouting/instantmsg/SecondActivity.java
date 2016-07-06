@@ -15,9 +15,9 @@ public class SecondActivity extends FindableActivity {
         super.onCreate(savedInstanceState);
         Log.d("ACTTEST", getTaskId() + "");
 
-//        sendMessage(new MessageImp(), new MessageConsumeListener() {
+//        sendMessage(new DispatchableMessage(), new MessageConsumeListener() {
 //            @Override
-//            public void consume(MessageImp msg) {
+//            public void consume(DispatchableMessage msg) {
 //                Toast.makeText(SecondActivity.this, "Seconde " + msg.getMessageId().toString(), Toast.LENGTH_SHORT).show();
 //            }
 //        });

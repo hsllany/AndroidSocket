@@ -6,14 +6,17 @@ import android.os.IBinder;
 import android.support.annotation.Nullable;
 
 import com.ubirouting.instantmsg.msgdispatcher.FindableDispatcher;
+import com.ubirouting.instantmsg.msgdispatcher.PrimaryDatas;
+import com.ubirouting.instantmsg.msgs.DispatchableMessage;
 import com.ubirouting.instantmsg.msgs.Heartbeat;
 import com.ubirouting.instantmsg.msgs.Message;
-import com.ubirouting.instantmsg.msgs.MessageImp;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.Socket;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -21,9 +24,14 @@ import java.util.concurrent.TimeUnit;
  */
 public class MsgService extends Service {
 
-    private BlockingQueue<MessageImp> sendMessages;
+    public static String HOST = "192.168.1.107";
+    public static int PORT = 10002;
 
-    private BlockingQueue<MessageImp> dispatchMessages;
+    private static final String TAG = "MsgService";
+
+    private BlockingQueue<DispatchableMessage> sendMessages;
+
+    private BlockingQueue<Message> dispatchMessages;
 
     private SendingThread sendingThread;
     private ReadingThread readingThread;
@@ -31,6 +39,11 @@ public class MsgService extends Service {
 
     private Socket socket;
 
+    // semaphore wait for send to connect
+    private Semaphore readDelaySemaphore = new Semaphore(0);
+
+    private byte[] msgLengthBuffer = new byte[4];
+    
     @Override
     public void onCreate() {
         super.onCreate();
@@ -79,54 +92,34 @@ public class MsgService extends Service {
         return null;
     }
 
-    private class SendingThread extends Thread {
-        private volatile boolean isRunFlag = true;
-
-        @Override
-        public void run() {
-            while (isRunFlag) {
-                MessageImp sendMsg = null;
-
-                try {
-                    sendMsg = sendMessages.poll(20000, TimeUnit.SECONDS);
-                } catch (InterruptedException e) {
-                    break;
-                }
-
-                try {
-                    if (sendMsg != null) {
-                        sendMessage(sendMsg);
-                    } else {
-                        sendMessage(new Heartbeat());
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-
-            }
-        }
-    }
 
     protected void sendMessage(Message message) throws IOException {
 
     }
 
-    protected void reconnect() {
+
+    protected final boolean reconnect() {
         while (true) {
             if (connect())
-                break;
+                return true;
 
             try {
-                wait(200);
+                synchronized (this) {
+                    wait(200);
+                }
             } catch (InterruptedException e) {
-                return;
+                return false;
             }
         }
     }
 
-    protected boolean connect() {
-        return true;
+    protected final boolean connect() {
+        try {
+            socket = new Socket(HOST, PORT);
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
 
@@ -135,7 +128,28 @@ public class MsgService extends Service {
 
         @Override
         public void run() {
-            super.run();
+            while (isRunFlag) {
+                try {
+                    // wait for the sendingThread to reconnect
+                    readDelaySemaphore.acquire();
+                } catch (InterruptedException e) {
+                    return;
+                }
+
+                while (true) {
+
+                    try {
+                        readBytes(socket.getInputStream(), msgLengthBuffer, 4);
+                        int msgLength = PrimaryDatas.b2i(msgLengthBuffer, 0);
+                        byte[] msgBuffer = new byte[PrimaryDatas.b2i(msgLengthBuffer, 0)];
+                        readBytes(socket.getInputStream(), msgBuffer, msgLength);
+                    } catch (IOException e) {
+                        // IO Exception means connection failed
+                        sendingThread.interrupt();
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -146,15 +160,62 @@ public class MsgService extends Service {
         public void run() {
             while (isRunFlag) {
                 try {
-                    MessageImp dispatchMsg = null;
-                    dispatchMsg = dispatchMessages.take();
+                    Message dispatchMsg = dispatchMessages.take();
 
-                    if (dispatchMsg != null)
-                        FindableDispatcher.getInstance().dispatch(dispatchMsg);
+                    if (dispatchMsg != null && dispatchMsg instanceof DispatchableMessage)
+                        FindableDispatcher.getInstance().dispatch((DispatchableMessage) dispatchMsg);
                 } catch (InterruptedException e) {
                     break;
                 }
             }
+        }
+    }
+
+    private class SendingThread extends Thread {
+        private volatile boolean isRunFlag = true;
+
+        @Override
+        public void run() {
+            while (isRunFlag) {
+
+                if (socket == null || !socket.isConnected()) {
+                    if (reconnect()) {
+                        readDelaySemaphore.release();
+
+                        while (true) {
+                            DispatchableMessage sendMsg = null;
+
+                            try {
+                                sendMsg = sendMessages.poll(20000, TimeUnit.SECONDS);
+                            } catch (InterruptedException e) {
+                                break;
+                            }
+
+                            try {
+                                if (sendMsg != null) {
+                                    sendMessage(sendMsg);
+                                } else {
+                                    sendMessage(new Heartbeat());
+                                }
+                            } catch (IOException e) {
+                                break;
+                            }
+                        }
+                    }
+
+
+                }
+            }
+        }
+    }
+
+    private static void readBytes(InputStream in, byte[] buffer, int readLength) throws IOException {
+        int start = 0;
+        int length = 4;
+        while (start < length) {
+            int r = in.read(buffer, start, length);
+            start += r;
+            length -= r;
         }
     }
 

@@ -5,5 +5,10 @@ package com.ubirouting.instantmsg.msgs;
  */
 public interface Message {
 
+    /**
+     * The byte array which can be transferred through socket.
+     *
+     * @return
+     */
     byte[] bytes();
 }

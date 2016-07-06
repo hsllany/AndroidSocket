@@ -7,7 +7,7 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 
 import com.ubirouting.instantmsg.msgdispatcher.FindableDispatcher;
-import com.ubirouting.instantmsg.msgs.MessageImp;
+import com.ubirouting.instantmsg.msgs.DispatchableMessage;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -23,7 +23,7 @@ public class MessageService extends Service {
         return instance;
     }
 
-    BlockingQueue<MessageImp> messageQueue = new LinkedBlockingQueue<>(23);
+    BlockingQueue<DispatchableMessage> messageQueue = new LinkedBlockingQueue<>(23);
     DispacherThread mDispatcherThread = new DispacherThread();
 
     @Override
@@ -42,7 +42,7 @@ public class MessageService extends Service {
         return null;
     }
 
-    public void sendMessage(MessageImp message) {
+    public void sendMessage(DispatchableMessage message) {
         try {
             messageQueue.put(message);
         } catch (InterruptedException e) {
@@ -59,10 +59,10 @@ public class MessageService extends Service {
 
                 try {
 
-                    MessageImp msg = null;
+                    DispatchableMessage msg = null;
 
                     msg = messageQueue.take();
-                    Log.d("MessageService", "get MessageImp");
+                    Log.d("MessageService", "get DispatchableMessage");
 
 
                     if (msg != null)
