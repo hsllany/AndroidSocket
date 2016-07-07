@@ -35,7 +35,7 @@ dependencies {
 }
 
 task processorTask(type: Exec) {
-    commandLine 'cp', '../processor/build/libs/processor.jar', 'libs/'
+    commandLine 'cp', '../androidsocket-processor/build/libs/androidsocket-processor.jar', 'libs/'
 }
 
 processorTask.dependsOn(':processor:build')

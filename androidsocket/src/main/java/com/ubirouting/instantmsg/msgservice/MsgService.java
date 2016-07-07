@@ -10,6 +10,7 @@ import com.ubirouting.instantmsg.msgdispatcher.PrimaryDatas;
 import com.ubirouting.instantmsg.msgs.DispatchableMessage;
 import com.ubirouting.instantmsg.msgs.Heartbeat;
 import com.ubirouting.instantmsg.msgs.Message;
+import com.ubirouting.instantmsg.msgs.MessageFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,8 +43,9 @@ public class MsgService extends Service {
     // semaphore wait for send to connect
     private Semaphore readDelaySemaphore = new Semaphore(0);
 
-    private byte[] msgLengthBuffer = new byte[4];
-    
+    // the formal 4 byte stores the length of the message, the latter 4 byte is code which distinguish messages.
+    private byte[] msgLengthBuffer = new byte[8];
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -94,7 +96,8 @@ public class MsgService extends Service {
 
 
     protected void sendMessage(Message message) throws IOException {
-
+        byte[] bytes = message.bytes();
+        int code = MessageFactory.codeFromMessage(message);
     }
 
 
@@ -137,13 +140,16 @@ public class MsgService extends Service {
                 }
 
                 while (true) {
-
                     try {
-                        readBytes(socket.getInputStream(), msgLengthBuffer, 4);
+                        // read the first 8 byte to get the length of the message, and the message code
+                        readBytes(socket.getInputStream(), msgLengthBuffer, 8);
                         int msgLength = PrimaryDatas.b2i(msgLengthBuffer, 0);
+                        int msgCode = PrimaryDatas.b2i(msgLengthBuffer, 4);
+
                         byte[] msgBuffer = new byte[PrimaryDatas.b2i(msgLengthBuffer, 0)];
                         readBytes(socket.getInputStream(), msgBuffer, msgLength);
-                    } catch (IOException e) {
+                        dispatchMessages.put(processMsg(msgBuffer, msgCode));
+                    } catch (IOException | InterruptedException e) {
                         // IO Exception means connection failed
                         sendingThread.interrupt();
                         break;
@@ -209,11 +215,17 @@ public class MsgService extends Service {
         }
     }
 
+    private Message processMsg(byte[] msgBytes, int code) {
+        return MessageFactory.buildWithCode(code, msgBytes);
+    }
+
     private static void readBytes(InputStream in, byte[] buffer, int readLength) throws IOException {
         int start = 0;
-        int length = 4;
-        while (start < length) {
+        int length = readLength;
+        while (start < readLength) {
             int r = in.read(buffer, start, length);
+            if (r == -1) //reach the end of the stream
+                return;
             start += r;
             length -= r;
         }

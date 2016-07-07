@@ -3,8 +3,8 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/MozzServiceCommunicator.iml" filepath="$PROJECT_DIR$/MozzServiceCommunicator.iml" />
-      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
-      <module fileurl="file://$PROJECT_DIR$/processor/processor.iml" filepath="$PROJECT_DIR$/processor/processor.iml" />
+      <module fileurl="file://$PROJECT_DIR$/androidsocket/androidsocket.iml" filepath="$PROJECT_DIR$/androidsocket/androidsocket.iml" />
+      <module fileurl="file://$PROJECT_DIR$/androidsocket-processor/androidsocket-processor.iml" filepath="$PROJECT_DIR$/androidsocket-processor/androidsocket-processor.iml" />
     </modules>
   </component>
 </project>

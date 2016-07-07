@@ -1,5 +1,6 @@
 package com.ubirouting.instantmsg.processor;
 
+import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
@@ -77,7 +78,17 @@ public final class MessageProcessor extends AbstractProcessor {
 
         }
 
-        buildMessageFactoryJava();
+        TypeSpec.Builder builder = TypeSpec.classBuilder("MessageFactory").addModifiers(Modifier.PUBLIC, Modifier.FINAL);
+
+        buildMessageFactoryJava(builder);
+        buildMessageCodeJava(builder);
+
+        JavaFile javaFile = JavaFile.builder("com.ubirouting.instantmsg.msgs", builder.build()).build();
+        try {
+            javaFile.writeTo(filer);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         return true;
     }
 
@@ -132,27 +143,35 @@ public final class MessageProcessor extends AbstractProcessor {
         return false;
     }
 
-    private boolean buildMessageFactoryJava() {
-        try {
-
-            StringBuilder sb = new StringBuilder();
-            for (MessageClass messageClass : messageAnnotationList) {
-                sb.append("case ").append(messageClass.code).append(":\n").append("return new ").append(messageClass.className).append("();\n");
-            }
-
-            MethodSpec methodSpec = MethodSpec.methodBuilder("buildWithCode").addModifiers(Modifier.PUBLIC, Modifier.STATIC).
-                    addParameter(ParameterSpec.builder(TypeName.INT, "msgCode").build()).
-                    addStatement("switch(msgCode){\n" + sb.toString() + "}\n" +
-                            "return null").returns(MESSAGE_TYPE).build();
-
-            TypeSpec factorType = TypeSpec.classBuilder("MessageFactory").addModifiers(Modifier.PUBLIC, Modifier.FINAL).addMethod(methodSpec).build();
-            JavaFile javaFile = JavaFile.builder("com.ubirouting.instantmsg.msgs", factorType).build();
-            javaFile.writeTo(filer);
-        } catch (IOException e) {
-            return false;
+    private void buildMessageFactoryJava(TypeSpec.Builder builder) {
+        StringBuilder sb = new StringBuilder();
+        for (MessageClass messageClass : messageAnnotationList) {
+            sb.append("case ").append(messageClass.code).append(":\n").append("return new ").append(messageClass.className).append("();\n");
         }
 
-        return true;
+        MethodSpec methodSpec = MethodSpec.methodBuilder("buildWithCode").addModifiers(Modifier.PUBLIC, Modifier.STATIC).
+                addParameter(ParameterSpec.builder(TypeName.INT, "msgCode").build()).
+                addParameter(ParameterSpec.builder(ArrayTypeName.of(TypeName.BYTE), "msgBytes").build()).
+                addStatement("switch(msgCode){\n" + sb.toString() + "}\n" +
+                        "return null").returns(MESSAGE_TYPE).build();
+
+        builder.addMethod(methodSpec);
+
+    }
+
+    private void buildMessageCodeJava(TypeSpec.Builder builder) {
+        StringBuilder sb = new StringBuilder();
+        for (MessageClass messageClass : messageAnnotationList) {
+            sb.append("if(msg.getClass().equals(" + messageClass.className + ".class))\n return " + messageClass.code + ";\n");
+        }
+
+        MethodSpec methodSpec = MethodSpec.methodBuilder("codeFromMessage").
+                addModifiers(Modifier.STATIC, Modifier.PUBLIC).
+                addParameter(ParameterSpec.builder(MESSAGE_TYPE, "msg").build()).
+                addStatement(sb.toString() + "\nthrow new IllegalArgumentException(\" did you forget to annotate \" + msg.getClass() + \" with MessageAnnotation?\")").
+                returns(TypeName.INT).build();
+
+        builder.addMethod(methodSpec);
     }
 
     private void error(Element e, String msg, Object... args) {
