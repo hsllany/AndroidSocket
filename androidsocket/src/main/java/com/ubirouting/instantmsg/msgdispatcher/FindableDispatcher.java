@@ -3,6 +3,7 @@ package com.ubirouting.instantmsg.msgdispatcher;
 import android.util.Log;
 
 import com.ubirouting.instantmsg.msgs.DispatchableMessage;
+import com.ubirouting.instantmsg.msgs.Message;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -15,6 +16,8 @@ import java.util.WeakHashMap;
 public class FindableDispatcher {
 
     private static FindableDispatcher instance = null;
+    private final WeakHashMap<Findable, Object> sFindables = new WeakHashMap<>();
+    private final Map<Class<? extends DispatchableMessage>, WeakList<Findable>> sTypeFindables = new HashMap<>();
 
     private FindableDispatcher() {
 
@@ -28,10 +31,6 @@ public class FindableDispatcher {
 
         return instance;
     }
-
-    private final WeakHashMap<Findable, Object> sFindables = new WeakHashMap<>();
-
-    private final Map<Class<? extends DispatchableMessage>, WeakList<Findable>> sTypeFindables = new HashMap<>();
 
     public synchronized void register(Findable activity, DispatchableMessage message) {
         synchronized (sFindables) {
@@ -52,27 +51,30 @@ public class FindableDispatcher {
         }
     }
 
-    public void dispatch(DispatchableMessage message) {
+    public void dispatch(Message message) {
 
         Findable target = null;
-        synchronized (sFindables) {
-            Iterator<Map.Entry<Findable, Object>> itr = sFindables.entrySet().iterator();
-            while (itr.hasNext()) {
-                Map.Entry<Findable, Object> entry = itr.next();
-                Findable findable = entry.getKey();
+        if (message instanceof DispatchableMessage) {
+            DispatchableMessage msg = (DispatchableMessage) message;
+            synchronized (sFindables) {
+                Iterator<Map.Entry<Findable, Object>> itr = sFindables.entrySet().iterator();
+                while (itr.hasNext()) {
+                    Map.Entry<Findable, Object> entry = itr.next();
+                    Findable findable = entry.getKey();
 
 
-                if (findable.getFindableId() == message.getMessageId().getUIId()) {
-                    if (findable.hasBeenDestroyed()) {
-                        itr.remove();
-                    } else {
+                    if (findable.getFindableId() == msg.getMessageId().getUIId()) {
+                        if (findable.hasBeenDestroyed()) {
+                            itr.remove();
+                        } else {
 
-                        Log.d("MessageService", "active Findable" + findable.toString());
-                        findable.execute(message);
-                        target = findable;
+                            Log.d("MessageService", "active Findable" + findable.toString());
+                            findable.execute(msg);
+                            target = findable;
+                        }
+
+                        break;
                     }
-
-                    break;
                 }
             }
         }

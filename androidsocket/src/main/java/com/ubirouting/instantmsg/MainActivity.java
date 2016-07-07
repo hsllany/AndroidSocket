@@ -11,13 +11,13 @@ import android.widget.TextView;
 import com.ubirouting.instantmsg.msgdispatcher.FindableActivity;
 import com.ubirouting.instantmsg.msgdispatcher.MessageConsumeListener;
 import com.ubirouting.instantmsg.msgs.DispatchableMessage;
+import com.ubirouting.instantmsg.msgs.Message;
 import com.ubirouting.instantmsg.msgservice.MsgService;
 
 public class MainActivity extends FindableActivity {
 
-    private TextView mTxt;
-
     StringBuilder sb = new StringBuilder();
+    private TextView mTxt;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,7 +46,7 @@ public class MainActivity extends FindableActivity {
 
         registerListener(DispatchableMessage.class, new MessageConsumeListener() {
             @Override
-            public void consume(DispatchableMessage msg) {
+            public void consume(Message msg) {
                 sb.append(msg + "\n");
                 mTxt.setText(sb.toString());
             }

@@ -1,10 +1,10 @@
 package com.ubirouting.instantmsg.msgdispatcher;
 
-import com.ubirouting.instantmsg.msgs.DispatchableMessage;
+import com.ubirouting.instantmsg.msgs.Message;
 
 /**
  * @author Yang Tao on 16/6/21.
  */
 public interface MessageConsumeListener {
-    void consume(DispatchableMessage msg);
+    void consume(Message msg);
 }

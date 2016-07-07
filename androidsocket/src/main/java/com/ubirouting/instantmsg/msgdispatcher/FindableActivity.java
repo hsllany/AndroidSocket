@@ -2,10 +2,10 @@ package com.ubirouting.instantmsg.msgdispatcher;
 
 import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 
 import com.ubirouting.instantmsg.MessageService;
 import com.ubirouting.instantmsg.msgs.DispatchableMessage;
+import com.ubirouting.instantmsg.msgs.Message;
 import com.ubirouting.instantmsg.msgs.MessageId;
 
 import java.util.HashMap;
@@ -18,7 +18,7 @@ import java.util.Map;
 public abstract class FindableActivity extends AppCompatActivity implements Findable {
 
     private final Map<MessageId, MessageConsumeListener> mListenerList = new HashMap<>();
-    private final Map<Class<? extends DispatchableMessage>, MessageConsumeListener> mTypeList = new ArrayMap<>();
+    private final Map<Class<? extends Message>, MessageConsumeListener> mTypeList = new ArrayMap<>();
 
     private final long id = System.currentTimeMillis();
 
@@ -52,33 +52,34 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
     }
 
     @Override
-    public final void execute(final DispatchableMessage msg) {
+    public final void execute(final Message msg) {
 
-        Log.d("LALA", this.toString() + "," + msg.toString());
+        if (msg instanceof DispatchableMessage) {
+            DispatchableMessage msgDis = (DispatchableMessage) msg;
+            synchronized (mListenerList) {
+                Iterator<Map.Entry<MessageId, MessageConsumeListener>> itr = mListenerList.entrySet().iterator();
+                while (itr.hasNext()) {
+                    final Map.Entry<MessageId, MessageConsumeListener> entry = itr.next();
+                    if (entry.getKey().equals(msgDis.getMessageId())) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                entry.getValue().consume(msg);
 
-        synchronized (mListenerList) {
-            Iterator<Map.Entry<MessageId, MessageConsumeListener>> itr = mListenerList.entrySet().iterator();
-            while (itr.hasNext()) {
-                final Map.Entry<MessageId, MessageConsumeListener> entry = itr.next();
-                if (entry.getKey().equals(msg.getMessageId())) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            entry.getValue().consume(msg);
-
-                        }
-                    });
-                    itr.remove();
-                    return;
+                            }
+                        });
+                        itr.remove();
+                        return;
+                    }
                 }
             }
         }
 
 
         synchronized (mTypeList) {
-            Iterator<Map.Entry<Class<? extends DispatchableMessage>, MessageConsumeListener>> itr2 = mTypeList.entrySet().iterator();
+            Iterator<Map.Entry<Class<? extends Message>, MessageConsumeListener>> itr2 = mTypeList.entrySet().iterator();
             while (itr2.hasNext()) {
-                final Map.Entry<Class<? extends DispatchableMessage>, MessageConsumeListener> entry = itr2.next();
+                final Map.Entry<Class<? extends Message>, MessageConsumeListener> entry = itr2.next();
 
                 if (entry.getKey().equals(msg.getClass())) {
                     runOnUiThread(new Runnable() {

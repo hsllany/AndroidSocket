@@ -4,6 +4,7 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
+import android.util.Log;
 
 import com.ubirouting.instantmsg.msgdispatcher.FindableDispatcher;
 import com.ubirouting.instantmsg.msgdispatcher.PrimaryDatas;
@@ -27,26 +28,50 @@ import java.util.concurrent.TimeUnit;
 public final class MsgService extends Service {
 
     private static final String TAG = "MsgService";
-
+    private static final float INCREMENT_HEARTBEAT_INTERVAL = (MsgServiceConfig.MAX_HEARTBEAT_TIME - MsgServiceConfig.MIN_HEARTBEAT_TIME) / 10.f;
     // to cache the message to be send, usually send by UI component.
     private BlockingQueue<DispatchableMessage> sendMessagesQueue;
-
     // to cache the message to be dispatched
     private BlockingQueue<Message> dispatchMessagesQueue;
-
     private SendingThread sendingThread;
-
     private ReadingThread readingThread;
-
     private DispatchThread dispatchThread;
-
     private Socket socket;
-
     // semaphore wait for send to connect
     private Semaphore readDelaySemaphore = new Semaphore(0);
-
     // the formal 4 byte stores the length of the message, the latter 4 byte is code which distinguish messages.
     private byte[] msgLengthBuffer = new byte[8];
+    private int heartbeatTime = 0;
+    private int continusHeartbeatCount = 0;
+    private boolean isLastHeartbeat = false;
+    private int readRound = 0;
+    private int writeRound = 0;
+
+    private static Message processMsg(byte[] msgBytes, int code) {
+        return MessageFactory.buildWithCode(code, msgBytes);
+    }
+
+    private static void readBytes(InputStream in, byte[] buffer, int readLength) throws IOException {
+        int start = 0;
+        int left = readLength;
+        while (start < readLength) {
+            int r = in.read(buffer, start, left);
+            if (r == -1) //reach the end of the stream
+                return;
+            start += r;
+            left -= r;
+        }
+    }
+
+    private static void sendBytes(OutputStream out, byte[] buffer) throws IOException {
+        out.write(buffer);
+        out.flush();
+    }
+
+    static void debug(String format, Object... objects) {
+        if (MsgServiceConfig.DEBUG_SOCKET)
+            Log.d(TAG, String.format(format, objects));
+    }
 
     @Override
     public void onCreate() {
@@ -58,6 +83,8 @@ public final class MsgService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+
+        debug("[MSGSERVICE START");
 
         if (sendingThread == null || !sendingThread.isAlive()) {
             sendingThread = new SendingThread();
@@ -103,7 +130,6 @@ public final class MsgService extends Service {
         return null;
     }
 
-
     /**
      * pack and send the message. pack the byte array with length (int) at first 4 bytes, and code second 4 byte
      *
@@ -111,6 +137,7 @@ public final class MsgService extends Service {
      * @throws IOException
      */
     protected final void sendMessageToSocketStream(Message message) throws IOException {
+        debug("[SENDING]:" + message.toString());
         byte[] bytes = message.bytes();
         int code = MessageFactory.codeFromMessage(message);
 
@@ -120,7 +147,6 @@ public final class MsgService extends Service {
 
         sendBytes(socket.getOutputStream(), actualBytes);
     }
-
 
     protected final boolean reconnect() {
         while (true) {
@@ -139,13 +165,25 @@ public final class MsgService extends Service {
 
     protected final boolean connect() {
         try {
-            socket = new Socket(URLConfig.HOST, URLConfig.PORT);
+            debug("[CONNECTING..]");
+            socket = new Socket(MsgServiceConfig.HOST, MsgServiceConfig.PORT);
+            socket.setSoTimeout(MsgServiceConfig.SOCKET_TIME_OUT);
+            heartbeatTime = MsgServiceConfig.MIN_HEARTBEAT_TIME;
+            continusHeartbeatCount = 0;
+            debug("[CONNECTING SUCCESSFULLY");
             return true;
         } catch (IOException e) {
             return false;
         }
     }
 
+    protected void processMsgBeforeDispatch(Message message) {
+
+    }
+
+    private final void calculateHeartbeatTime() {
+        heartbeatTime = (int) (MsgServiceConfig.MIN_HEARTBEAT_TIME + INCREMENT_HEARTBEAT_INTERVAL * continusHeartbeatCount);
+    }
 
     private class ReadingThread extends Thread {
         private volatile boolean isRunFlag = true;
@@ -169,7 +207,13 @@ public final class MsgService extends Service {
 
                         byte[] msgBuffer = new byte[PrimaryDatas.b2i(msgLengthBuffer, 0)];
                         readBytes(socket.getInputStream(), msgBuffer, msgLength);
-                        dispatchMessagesQueue.put(processMsg(msgBuffer, msgCode));
+                        Message message = processMsg(msgBuffer, msgCode);
+
+                        debug("[RECEIVING]:" + message.toString());
+
+                        dispatchMessagesQueue.put(message);
+
+                        readRound++;
                     } catch (IOException | InterruptedException e) {
                         // IO Exception means connection failed
                         sendingThread.interrupt();
@@ -187,10 +231,12 @@ public final class MsgService extends Service {
         public void run() {
             while (isRunFlag) {
                 try {
-                    Message dispatchMsg = dispatchMessagesQueue.take();
+                    Message msg = dispatchMessagesQueue.take();
 
-                    if (dispatchMsg != null && dispatchMsg instanceof DispatchableMessage)
-                        FindableDispatcher.getInstance().dispatch((DispatchableMessage) dispatchMsg);
+                    if (msg != null) {
+                        processMsgBeforeDispatch(msg);
+                        FindableDispatcher.getInstance().dispatch(msg);
+                    }
                 } catch (InterruptedException e) {
                     break;
                 }
@@ -203,6 +249,7 @@ public final class MsgService extends Service {
 
         @Override
         public void run() {
+            debug("[WAIT FOR MESSAGE TO SEND]");
             while (isRunFlag) {
 
                 if (socket == null || !socket.isConnected()) {
@@ -213,7 +260,7 @@ public final class MsgService extends Service {
                             DispatchableMessage sendMsg;
 
                             try {
-                                sendMsg = sendMessagesQueue.poll(20000, TimeUnit.SECONDS);
+                                sendMsg = sendMessagesQueue.poll(heartbeatTime / 1000, TimeUnit.SECONDS);
                             } catch (InterruptedException e) {
                                 break;
                             }
@@ -221,9 +268,17 @@ public final class MsgService extends Service {
                             try {
                                 if (sendMsg != null) {
                                     sendMessageToSocketStream(sendMsg);
+                                    continusHeartbeatCount = 0;
                                 } else {
                                     sendMessageToSocketStream(new Heartbeat());
+                                    continusHeartbeatCount++;
+                                    if (continusHeartbeatCount > 10)
+                                        continusHeartbeatCount = 10;
+
                                 }
+
+                                calculateHeartbeatTime();
+                                writeRound++;
                             } catch (IOException e) {
                                 break;
                             }
@@ -232,27 +287,6 @@ public final class MsgService extends Service {
                 }
             }
         }
-    }
-
-    private static Message processMsg(byte[] msgBytes, int code) {
-        return MessageFactory.buildWithCode(code, msgBytes);
-    }
-
-    private static void readBytes(InputStream in, byte[] buffer, int readLength) throws IOException {
-        int start = 0;
-        int left = readLength;
-        while (start < readLength) {
-            int r = in.read(buffer, start, left);
-            if (r == -1) //reach the end of the stream
-                return;
-            start += r;
-            left -= r;
-        }
-    }
-
-    private static void sendBytes(OutputStream out, byte[] buffer) throws IOException {
-        out.write(buffer);
-        out.flush();
     }
 
 
