@@ -144,34 +144,36 @@ public final class MessageProcessor extends AbstractProcessor {
     }
 
     private void buildMessageFactoryJava(TypeSpec.Builder builder) {
-        StringBuilder sb = new StringBuilder();
+
+        MethodSpec.Builder methodSpecBuilder = MethodSpec.methodBuilder("buildWithCode").addModifiers(Modifier.PUBLIC, Modifier.STATIC).
+                addParameter(ParameterSpec.builder(TypeName.INT, "msgCode").build()).
+                addParameter(ParameterSpec.builder(ArrayTypeName.of(TypeName.BYTE), "msgBytes").build());
+
+        methodSpecBuilder.addCode("switch(msgCode){");
+
         for (MessageClass messageClass : messageAnnotationList) {
-            sb.append("case ").append(messageClass.code).append(":\n").append("return new ").append(messageClass.className).append("();\n");
+            methodSpecBuilder.addStatement("case " + messageClass.code + ":\n return new $T()", messageClass.element);
         }
 
-        MethodSpec methodSpec = MethodSpec.methodBuilder("buildWithCode").addModifiers(Modifier.PUBLIC, Modifier.STATIC).
-                addParameter(ParameterSpec.builder(TypeName.INT, "msgCode").build()).
-                addParameter(ParameterSpec.builder(ArrayTypeName.of(TypeName.BYTE), "msgBytes").build()).
-                addStatement("switch(msgCode){\n" + sb.toString() + "}\n" +
-                        "return null").returns(MESSAGE_TYPE).build();
+        methodSpecBuilder.addCode("default:\n\treturn null;\n}\n");
 
-        builder.addMethod(methodSpec);
+        builder.addMethod(methodSpecBuilder.returns(MESSAGE_TYPE).build());
 
     }
 
     private void buildMessageCodeJava(TypeSpec.Builder builder) {
-        StringBuilder sb = new StringBuilder();
+
+        MethodSpec.Builder methodSpecBuilder = MethodSpec.methodBuilder("codeFromMessage").
+                addModifiers(Modifier.STATIC, Modifier.PUBLIC).
+                addParameter(ParameterSpec.builder(MESSAGE_TYPE, "msg").build());
+
         for (MessageClass messageClass : messageAnnotationList) {
-            sb.append("if(msg.getClass().equals(" + messageClass.className + ".class))\n return " + messageClass.code + ";\n");
+            methodSpecBuilder.addStatement("if(msg.getClass().equals($T.class)) \n return " + messageClass.code, messageClass.element);
         }
 
-        MethodSpec methodSpec = MethodSpec.methodBuilder("codeFromMessage").
-                addModifiers(Modifier.STATIC, Modifier.PUBLIC).
-                addParameter(ParameterSpec.builder(MESSAGE_TYPE, "msg").build()).
-                addStatement(sb.toString() + "\nthrow new IllegalArgumentException(\" did you forget to annotate \" + msg.getClass() + \" with MessageAnnotation?\")").
-                returns(TypeName.INT).build();
+        methodSpecBuilder.addStatement("return -1");
 
-        builder.addMethod(methodSpec);
+        builder.addMethod(methodSpecBuilder.returns(TypeName.INT).build());
     }
 
     private void error(Element e, String msg, Object... args) {

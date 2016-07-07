@@ -9,8 +9,10 @@ public class MessageClass {
     String className;
     int code;
     MessageType type;
+    Element element;
 
     MessageClass(Element element, MessageAnnotation annotation) {
+        this.element = element;
         className = element.getSimpleName().toString();
 
         code = annotation.code();

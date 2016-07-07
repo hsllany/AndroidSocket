@@ -14,6 +14,7 @@ import com.ubirouting.instantmsg.msgs.MessageFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -23,19 +24,20 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author Yang Tao on 16/6/30.
  */
-public class MsgService extends Service {
-
-    public static String HOST = "192.168.1.107";
-    public static int PORT = 10002;
+public final class MsgService extends Service {
 
     private static final String TAG = "MsgService";
 
-    private BlockingQueue<DispatchableMessage> sendMessages;
+    // to cache the message to be send, usually send by UI component.
+    private BlockingQueue<DispatchableMessage> sendMessagesQueue;
 
-    private BlockingQueue<Message> dispatchMessages;
+    // to cache the message to be dispatched
+    private BlockingQueue<Message> dispatchMessagesQueue;
 
     private SendingThread sendingThread;
+
     private ReadingThread readingThread;
+
     private DispatchThread dispatchThread;
 
     private Socket socket;
@@ -50,20 +52,27 @@ public class MsgService extends Service {
     public void onCreate() {
         super.onCreate();
 
-        sendMessages = new LinkedBlockingQueue<>();
-        dispatchMessages = new LinkedBlockingQueue<>();
+        sendMessagesQueue = new LinkedBlockingQueue<>();
+        dispatchMessagesQueue = new LinkedBlockingQueue<>();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
 
-        sendingThread = new SendingThread();
-        readingThread = new ReadingThread();
-        dispatchThread = new DispatchThread();
+        if (sendingThread == null || !sendingThread.isAlive()) {
+            sendingThread = new SendingThread();
+            sendingThread.start();
+        }
 
-        sendingThread.start();
-        readingThread.start();
-        dispatchThread.start();
+        if (readingThread == null || !readingThread.isAlive()) {
+            readingThread = new ReadingThread();
+            readingThread.start();
+        }
+
+        if (dispatchThread == null || !dispatchThread.isAlive()) {
+            dispatchThread = new DispatchThread();
+            dispatchThread.start();
+        }
 
         return super.onStartCommand(intent, flags, startId);
     }
@@ -95,9 +104,21 @@ public class MsgService extends Service {
     }
 
 
-    protected void sendMessage(Message message) throws IOException {
+    /**
+     * pack and send the message. pack the byte array with length (int) at first 4 bytes, and code second 4 byte
+     *
+     * @param message to send
+     * @throws IOException
+     */
+    protected final void sendMessageToSocketStream(Message message) throws IOException {
         byte[] bytes = message.bytes();
         int code = MessageFactory.codeFromMessage(message);
+
+        byte[] actualBytes = new byte[bytes.length + 4 + 4];
+        PrimaryDatas.i2b(bytes.length, actualBytes, 0);
+        PrimaryDatas.i2b(code, actualBytes, 4);
+
+        sendBytes(socket.getOutputStream(), actualBytes);
     }
 
 
@@ -118,7 +139,7 @@ public class MsgService extends Service {
 
     protected final boolean connect() {
         try {
-            socket = new Socket(HOST, PORT);
+            socket = new Socket(URLConfig.HOST, URLConfig.PORT);
             return true;
         } catch (IOException e) {
             return false;
@@ -148,7 +169,7 @@ public class MsgService extends Service {
 
                         byte[] msgBuffer = new byte[PrimaryDatas.b2i(msgLengthBuffer, 0)];
                         readBytes(socket.getInputStream(), msgBuffer, msgLength);
-                        dispatchMessages.put(processMsg(msgBuffer, msgCode));
+                        dispatchMessagesQueue.put(processMsg(msgBuffer, msgCode));
                     } catch (IOException | InterruptedException e) {
                         // IO Exception means connection failed
                         sendingThread.interrupt();
@@ -166,7 +187,7 @@ public class MsgService extends Service {
         public void run() {
             while (isRunFlag) {
                 try {
-                    Message dispatchMsg = dispatchMessages.take();
+                    Message dispatchMsg = dispatchMessagesQueue.take();
 
                     if (dispatchMsg != null && dispatchMsg instanceof DispatchableMessage)
                         FindableDispatcher.getInstance().dispatch((DispatchableMessage) dispatchMsg);
@@ -189,46 +210,49 @@ public class MsgService extends Service {
                         readDelaySemaphore.release();
 
                         while (true) {
-                            DispatchableMessage sendMsg = null;
+                            DispatchableMessage sendMsg;
 
                             try {
-                                sendMsg = sendMessages.poll(20000, TimeUnit.SECONDS);
+                                sendMsg = sendMessagesQueue.poll(20000, TimeUnit.SECONDS);
                             } catch (InterruptedException e) {
                                 break;
                             }
 
                             try {
                                 if (sendMsg != null) {
-                                    sendMessage(sendMsg);
+                                    sendMessageToSocketStream(sendMsg);
                                 } else {
-                                    sendMessage(new Heartbeat());
+                                    sendMessageToSocketStream(new Heartbeat());
                                 }
                             } catch (IOException e) {
                                 break;
                             }
                         }
                     }
-
-
                 }
             }
         }
     }
 
-    private Message processMsg(byte[] msgBytes, int code) {
+    private static Message processMsg(byte[] msgBytes, int code) {
         return MessageFactory.buildWithCode(code, msgBytes);
     }
 
     private static void readBytes(InputStream in, byte[] buffer, int readLength) throws IOException {
         int start = 0;
-        int length = readLength;
+        int left = readLength;
         while (start < readLength) {
-            int r = in.read(buffer, start, length);
+            int r = in.read(buffer, start, left);
             if (r == -1) //reach the end of the stream
                 return;
             start += r;
-            length -= r;
+            left -= r;
         }
+    }
+
+    private static void sendBytes(OutputStream out, byte[] buffer) throws IOException {
+        out.write(buffer);
+        out.flush();
     }
 
 

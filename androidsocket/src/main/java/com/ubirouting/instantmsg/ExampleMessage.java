@@ -1,5 +1,6 @@
-package com.ubirouting.instantmsg.msgs;
+package com.ubirouting.instantmsg;
 
+import com.ubirouting.instantmsg.msgs.Message;
 import com.ubirouting.instantmsg.processor.MessageAnnotation;
 import com.ubirouting.instantmsg.processor.MessageType;
 
