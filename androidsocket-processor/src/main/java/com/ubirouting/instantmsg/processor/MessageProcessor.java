@@ -27,6 +27,8 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -39,12 +41,13 @@ import javax.tools.Diagnostic;
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public final class MessageProcessor extends AbstractProcessor {
 
+    private static final ClassName MESSAGE_TYPE = ClassName.get("com.ubirouting.instantmsg.msgs", "Message");
     private Types typeUtils;
     private Elements elementUtils;
     private Filer filer;
     private Messager messager;
-
-    private static final ClassName MESSAGE_TYPE = ClassName.get("com.ubirouting.instantmsg.msgs", "Message");
+    private List<MessageClass> messageAnnotationList = new ArrayList<>();
+    private Set<Integer> codeSet = new HashSet<>();
 
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -55,9 +58,6 @@ public final class MessageProcessor extends AbstractProcessor {
         filer = processingEnv.getFiler();
         messager = processingEnv.getMessager();
     }
-
-    private List<MessageClass> messageAnnotationList = new ArrayList<>();
-    private Set<Integer> codeSet = new HashSet<>();
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
@@ -87,7 +87,6 @@ public final class MessageProcessor extends AbstractProcessor {
         try {
             javaFile.writeTo(filer);
         } catch (IOException e) {
-            e.printStackTrace();
         }
         return true;
     }
@@ -108,21 +107,23 @@ public final class MessageProcessor extends AbstractProcessor {
             return false;
         }
 
-        boolean isMessageType = false;
 
+        TypeElement currentElement = (TypeElement) element;
+        while (true) {
+            TypeMirror superClassType = currentElement.getSuperclass();
 
-        TypeElement typeElement = (TypeElement) element;
-        List interfaces = typeElement.getInterfaces();
-        for (Object object : interfaces) {
-            TypeMirror mirror = (TypeMirror) object;
-            if (mirror.toString().equals("com.ubirouting.instantmsg.msgs.Message")) {
-                isMessageType = true;
+            if (superClassType.getKind() == TypeKind.NONE) {
+                error(element, "The class %s annotated with @%s must inherit from %s",
+                        currentElement.getQualifiedName().toString(), MessageAnnotation.class.getSimpleName(),
+                        MESSAGE_TYPE);
+                return false;
             }
-        }
 
-        if (!isMessageType) {
-            error(element, "class should implement Message interface");
-            return false;
+            if (superClassType.toString().equals(MESSAGE_TYPE.toString())) {
+                break;
+            }
+
+            currentElement = (TypeElement) typeUtils.asElement(superClassType);
         }
 
         if (codeSet.contains(element.getAnnotation(MessageAnnotation.class).code())) {
@@ -130,16 +131,26 @@ public final class MessageProcessor extends AbstractProcessor {
             return false;
         }
 
-        for (Element subElement : element.getEnclosedElements()) {
-            if (subElement.getKind() == ElementKind.CONSTRUCTOR) {
-                ExecutableElement constructElement = (ExecutableElement) subElement;
+        if (element.getAnnotation(MessageAnnotation.class).type() == MessageType.ALL || element.getAnnotation(MessageAnnotation.class).type() == MessageType.READ_ONLY) {
+            for (Element subElement : element.getEnclosedElements()) {
+                if (subElement.getKind() == ElementKind.CONSTRUCTOR) {
+                    ExecutableElement constructElement = (ExecutableElement) subElement;
 
-                if (constructElement.getModifiers().contains(Modifier.PUBLIC) && constructElement.getParameters().size() == 0)
-                    return true;
+                    if (constructElement.getModifiers().contains(Modifier.PUBLIC) && constructElement.getParameters().size() == 1) {
+                        List variableElements = constructElement.getParameters();
+
+                        VariableElement variableElement = (VariableElement) variableElements.get(0);
+                        info(null, "lala" + variableElement.asType().toString().equals("byte[]"));
+                        if (variableElement.asType().toString().equals("byte[]")) {
+                            return true;
+                        }
+                    }
+
+                }
             }
         }
 
-        error(element, "class should have at least one public constructor with no parameters");
+        error(element, "class should have at least one public constructor with 1 parameters of byte array");
         return false;
     }
 
@@ -152,7 +163,7 @@ public final class MessageProcessor extends AbstractProcessor {
         methodSpecBuilder.addCode("switch(msgCode){");
 
         for (MessageClass messageClass : messageAnnotationList) {
-            methodSpecBuilder.addStatement("case " + messageClass.code + ":\n return new $T()", messageClass.element);
+            methodSpecBuilder.addStatement("case " + messageClass.code + ":\n return new $T(msgBytes)", messageClass.element);
         }
 
         methodSpecBuilder.addCode("default:\n\treturn null;\n}\n");

@@ -11,9 +11,19 @@ import com.ubirouting.instantmsg.processor.MessageType;
         code = 2,
         type = MessageType.ALL
 )
-public class ExampleMessage implements Message {
+public class ExampleMessage extends Message {
+
+    public ExampleMessage(byte[] rawBytes) {
+        super(rawBytes);
+    }
+
     @Override
     public byte[] bytes() {
         return new byte[0];
+    }
+
+    @Override
+    protected void initWithBytes(byte[] bytes) {
+        
     }
 }

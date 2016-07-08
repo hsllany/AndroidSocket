@@ -2,7 +2,7 @@ package com.ubirouting.instantmsg.msgdispatcher;
 
 import android.util.Log;
 
-import com.ubirouting.instantmsg.msgs.DispatchableMessage;
+import com.ubirouting.instantmsg.msgs.DispatchMessage;
 import com.ubirouting.instantmsg.msgs.Message;
 
 import java.util.HashMap;
@@ -17,7 +17,7 @@ public class FindableDispatcher {
 
     private static FindableDispatcher instance = null;
     private final WeakHashMap<Findable, Object> sFindables = new WeakHashMap<>();
-    private final Map<Class<? extends DispatchableMessage>, WeakList<Findable>> sTypeFindables = new HashMap<>();
+    private final Map<Class<? extends DispatchMessage>, WeakList<Findable>> sTypeFindables = new HashMap<>();
 
     private FindableDispatcher() {
 
@@ -32,13 +32,13 @@ public class FindableDispatcher {
         return instance;
     }
 
-    public synchronized void register(Findable activity, DispatchableMessage message) {
+    public synchronized void register(Findable activity, DispatchMessage message) {
         synchronized (sFindables) {
             sFindables.put(activity, this);
         }
     }
 
-    public void register(Findable activity, Class<? extends DispatchableMessage> messageType) {
+    public void register(Findable activity, Class<? extends DispatchMessage> messageType) {
         synchronized (sTypeFindables) {
             WeakList<Findable> list = sTypeFindables.get(messageType);
             if (list == null) {
@@ -54,8 +54,8 @@ public class FindableDispatcher {
     public void dispatch(Message message) {
 
         Findable target = null;
-        if (message instanceof DispatchableMessage) {
-            DispatchableMessage msg = (DispatchableMessage) message;
+        if (message instanceof DispatchMessage) {
+            DispatchMessage msg = (DispatchMessage) message;
             synchronized (sFindables) {
                 Iterator<Map.Entry<Findable, Object>> itr = sFindables.entrySet().iterator();
                 while (itr.hasNext()) {

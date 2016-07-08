@@ -10,7 +10,7 @@ import android.widget.TextView;
 
 import com.ubirouting.instantmsg.msgdispatcher.FindableActivity;
 import com.ubirouting.instantmsg.msgdispatcher.MessageConsumeListener;
-import com.ubirouting.instantmsg.msgs.DispatchableMessage;
+import com.ubirouting.instantmsg.msgs.DispatchMessage;
 import com.ubirouting.instantmsg.msgs.Message;
 import com.ubirouting.instantmsg.msgservice.MsgService;
 
@@ -44,7 +44,7 @@ public class MainActivity extends FindableActivity {
         Intent i = new Intent(this, MsgService.class);
         startService(i);
 
-        registerListener(DispatchableMessage.class, new MessageConsumeListener() {
+        registerListener(DispatchMessage.class, new MessageConsumeListener() {
             @Override
             public void consume(Message msg) {
                 sb.append(msg + "\n");

@@ -4,7 +4,7 @@ import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
 
 import com.ubirouting.instantmsg.MessageService;
-import com.ubirouting.instantmsg.msgs.DispatchableMessage;
+import com.ubirouting.instantmsg.msgs.DispatchMessage;
 import com.ubirouting.instantmsg.msgs.Message;
 import com.ubirouting.instantmsg.msgs.MessageId;
 
@@ -19,11 +19,9 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
 
     private final Map<MessageId, MessageConsumeListener> mListenerList = new HashMap<>();
     private final Map<Class<? extends Message>, MessageConsumeListener> mTypeList = new ArrayMap<>();
+    private final long id = System.currentTimeMillis() + hashCode();
 
-    private final long id = System.currentTimeMillis();
-
-    public final void sendMessage(DispatchableMessage msg, MessageConsumeListener l) {
-        msg.generateMessageId(this);
+    public final void sendMessage(DispatchMessage msg, MessageConsumeListener l) {
         synchronized (mListenerList) {
             mListenerList.put(msg.getMessageId(), l);
         }
@@ -32,7 +30,7 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
         MessageService.getInstance().sendMessage(msg);
     }
 
-    public final void registerListener(Class<? extends DispatchableMessage> msgClass, MessageConsumeListener l) {
+    public final void registerListener(Class<? extends DispatchMessage> msgClass, MessageConsumeListener l) {
         synchronized (mTypeList) {
             mTypeList.put(msgClass, l);
         }
@@ -54,8 +52,8 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
     @Override
     public final void execute(final Message msg) {
 
-        if (msg instanceof DispatchableMessage) {
-            DispatchableMessage msgDis = (DispatchableMessage) msg;
+        if (msg instanceof DispatchMessage) {
+            DispatchMessage msgDis = (DispatchMessage) msg;
             synchronized (mListenerList) {
                 Iterator<Map.Entry<MessageId, MessageConsumeListener>> itr = mListenerList.entrySet().iterator();
                 while (itr.hasNext()) {

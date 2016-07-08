@@ -15,9 +15,9 @@ public class SecondActivity extends FindableActivity {
         super.onCreate(savedInstanceState);
         Log.d("ACTTEST", getTaskId() + "");
 
-//        sendMessageToSocketStream(new DispatchableMessage(), new MessageConsumeListener() {
+//        sendMessageToSocketStream(new DispatchMessage(), new MessageConsumeListener() {
 //            @Override
-//            public void consume(DispatchableMessage msg) {
+//            public void consume(DispatchMessage msg) {
 //                Toast.makeText(SecondActivity.this, "Seconde " + msg.getMessageId().toString(), Toast.LENGTH_SHORT).show();
 //            }
 //        });

@@ -8,7 +8,7 @@ import android.util.Log;
 
 import com.ubirouting.instantmsg.msgdispatcher.FindableDispatcher;
 import com.ubirouting.instantmsg.msgdispatcher.PrimaryDatas;
-import com.ubirouting.instantmsg.msgs.DispatchableMessage;
+import com.ubirouting.instantmsg.msgs.DispatchMessage;
 import com.ubirouting.instantmsg.msgs.Heartbeat;
 import com.ubirouting.instantmsg.msgs.Message;
 import com.ubirouting.instantmsg.msgs.MessageFactory;
@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.Iterator;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
@@ -30,9 +31,9 @@ public final class MsgService extends Service {
     private static final String TAG = "MsgService";
     private static final float INCREMENT_HEARTBEAT_INTERVAL = (MsgServiceConfig.MAX_HEARTBEAT_TIME - MsgServiceConfig.MIN_HEARTBEAT_TIME) / 10.f;
     // to cache the message to be send, usually send by UI component.
-    private BlockingQueue<DispatchableMessage> sendMessagesQueue;
+    private final BlockingQueue<DispatchMessage> sendMessagesQueue = new LinkedBlockingQueue<>();
     // to cache the message to be dispatched
-    private BlockingQueue<Message> dispatchMessagesQueue;
+    private final BlockingQueue<Message> dispatchMessagesQueue = new LinkedBlockingQueue<>();
     private SendingThread sendingThread;
     private ReadingThread readingThread;
     private DispatchThread dispatchThread;
@@ -43,7 +44,6 @@ public final class MsgService extends Service {
     private byte[] msgLengthBuffer = new byte[8];
     private int heartbeatTime = 0;
     private int continusHeartbeatCount = 0;
-    private boolean isLastHeartbeat = false;
     private int readRound = 0;
     private int writeRound = 0;
 
@@ -76,9 +76,6 @@ public final class MsgService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-
-        sendMessagesQueue = new LinkedBlockingQueue<>();
-        dispatchMessagesQueue = new LinkedBlockingQueue<>();
     }
 
     @Override
@@ -152,6 +149,19 @@ public final class MsgService extends Service {
         while (true) {
             if (connect())
                 return true;
+
+            synchronized (sendMessagesQueue) {
+                Iterator<DispatchMessage> itr = sendMessagesQueue.iterator();
+                while (itr.hasNext()) {
+                    Message msg = itr.next();
+
+                    if (System.currentTimeMillis() - msg.getTimestamp() > MsgServiceConfig.MESSAGE_SEND_TIME_OUT) {
+                        itr.remove();
+                        msg.updateStatus(Message.STATUS_FAILED);
+                        dispatchMessagesQueue.offer(msg);
+                    }
+                }
+            }
 
             try {
                 synchronized (this) {
@@ -257,7 +267,7 @@ public final class MsgService extends Service {
                         readDelaySemaphore.release();
 
                         while (true) {
-                            DispatchableMessage sendMsg;
+                            DispatchMessage sendMsg;
 
                             try {
                                 sendMsg = sendMessagesQueue.poll(heartbeatTime / 1000, TimeUnit.SECONDS);

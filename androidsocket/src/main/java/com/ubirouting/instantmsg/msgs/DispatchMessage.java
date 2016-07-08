@@ -2,12 +2,17 @@ package com.ubirouting.instantmsg.msgs;
 
 import com.ubirouting.instantmsg.msgdispatcher.Findable;
 
-public abstract class DispatchableMessage implements Message {
+public abstract class DispatchMessage extends Message {
 
-    MessageId mId;
+    private MessageId mId;
 
-    public void generateMessageId(Findable findable) {
+    public DispatchMessage(Findable findable) {
+        super();
         mId = new MessageId(findable);
+    }
+
+    public DispatchMessage(byte[] rawBytes) {
+        super(rawBytes);
     }
 
     @Override
@@ -26,7 +31,7 @@ public abstract class DispatchableMessage implements Message {
 
     @Override
     public boolean equals(Object o) {
-        return o instanceof DispatchableMessage && ((DispatchableMessage) o).mId.equals(mId);
+        return o instanceof DispatchMessage && ((DispatchMessage) o).mId.equals(mId);
 
     }
 }
