@@ -150,8 +150,10 @@ public final class MsgService extends Service {
 
     protected final boolean reconnect() {
         while (true) {
-            if (connect())
-                return true;
+            if (NetworkUtils.isNetworkAvailable(this)) {
+                if (connect())
+                    return true;
+            }
 
             synchronized (sendMessagesQueue) {
                 Iterator<DispatchMessage> itr = sendMessagesQueue.iterator();
@@ -168,7 +170,7 @@ public final class MsgService extends Service {
 
             try {
                 synchronized (this) {
-                    wait(200);
+                    wait(MsgServiceConfig.CONNECT_TRY_TIMEOUT);
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();

@@ -5,7 +5,7 @@ import com.ubirouting.instantmsg.utils.$Checkr;
 /**
  * @author Yang Tao on 16/6/30.
  */
-public abstract class Message {
+public abstract class Message implements Transimitable {
 
     public static final int SRC_SERVER = 0x01;
     public static final int SRC_CLIENT = 0x02;
@@ -42,14 +42,6 @@ public abstract class Message {
         $Checkr.checkRange(newStatus, STATUS_FAILED, STATUS_SERVER, STATUS_SEND, STATUS_TO_BE_SEND);
         status = newStatus;
     }
-
-
-    /**
-     * The byte array which can be transferred through socket.
-     *
-     * @return
-     */
-    public abstract byte[] bytes();
 
     protected abstract void initWithBytes(byte[] bytes);
 

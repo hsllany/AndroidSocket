@@ -4,14 +4,19 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.widget.Toolbar;
+import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import com.ubirouting.instantmsg.msgdispatcher.Findable;
 import com.ubirouting.instantmsg.msgdispatcher.FindableActivity;
 import com.ubirouting.instantmsg.msgdispatcher.MessageConsumeListener;
 import com.ubirouting.instantmsg.msgs.Heartbeat;
 import com.ubirouting.instantmsg.msgs.Message;
 import com.ubirouting.instantmsg.msgservice.MsgService;
+
+import java.util.Arrays;
 
 public class MainActivity extends FindableActivity {
 
@@ -31,6 +36,18 @@ public class MainActivity extends FindableActivity {
 
         Button button = (Button) findViewById(R.id.another);
         assert button != null;
+
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                MainActivity.this.sendMessage(new ExampleMessage((Findable) null, "Hello world"), new MessageConsumeListener() {
+                    @Override
+                    public void consume(Message msg) {
+                        Toast.makeText(MainActivity.this, Arrays.toString(msg.bytes()), Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        });
 
         Intent i = new Intent(this, MsgService.class);
         startService(i);

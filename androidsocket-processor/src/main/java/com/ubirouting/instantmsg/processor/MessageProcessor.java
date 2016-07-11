@@ -132,25 +132,50 @@ public final class MessageProcessor extends AbstractProcessor {
         }
 
         if (element.getAnnotation(MessageAnnotation.class).type() == MessageType.ALL || element.getAnnotation(MessageAnnotation.class).type() == MessageType.READ_ONLY) {
-            for (Element subElement : element.getEnclosedElements()) {
-                if (subElement.getKind() == ElementKind.CONSTRUCTOR) {
-                    ExecutableElement constructElement = (ExecutableElement) subElement;
+            if (checkConstructorWithBytes(element)) {
+                return true;
+            } else {
+                error(element, "class should have at least public constructor with 1 parameters of byte array and an empty constructor");
+                return false;
+            }
+        } else {
+            return true;
+        }
+    }
 
-                    if (constructElement.getModifiers().contains(Modifier.PUBLIC) && constructElement.getParameters().size() == 1) {
-                        List variableElements = constructElement.getParameters();
+    private boolean checkConstructorWithBytes(Element element) {
+        for (Element subElement : element.getEnclosedElements()) {
+            if (subElement.getKind() == ElementKind.CONSTRUCTOR) {
+                ExecutableElement constructElement = (ExecutableElement) subElement;
 
-                        VariableElement variableElement = (VariableElement) variableElements.get(0);
-                        info(null, "lala" + variableElement.asType().toString().equals("byte[]"));
-                        if (variableElement.asType().toString().equals("byte[]")) {
-                            return true;
-                        }
+                if (constructElement.getModifiers().contains(Modifier.PUBLIC) && constructElement.getParameters().size() == 1) {
+                    List variableElements = constructElement.getParameters();
+
+                    VariableElement variableElement = (VariableElement) variableElements.get(0);
+                    info(null, "lala" + variableElement.asType().toString().equals("byte[]"));
+                    if (variableElement.asType().toString().equals("byte[]")) {
+                        return true;
                     }
-
                 }
+
             }
         }
 
-        error(element, "class should have at least one public constructor with 1 parameters of byte array");
+        return false;
+    }
+
+    private boolean checkEmptyConstructor(Element element) {
+        for (Element subElement : element.getEnclosedElements()) {
+            if (subElement.getKind() == ElementKind.CONSTRUCTOR) {
+                ExecutableElement constructElement = (ExecutableElement) subElement;
+
+                if (constructElement.getModifiers().contains(Modifier.PUBLIC) && constructElement.getParameters().size() == 0) {
+                    return true;
+                }
+
+            }
+        }
+
         return false;
     }
 

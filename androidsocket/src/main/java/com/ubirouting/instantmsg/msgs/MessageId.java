@@ -8,12 +8,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * @author Yang Tao on 16/6/21.
  */
-public final class MessageId {
-
-    private static AtomicInteger sCounter = new AtomicInteger(0);
+public final class MessageId implements Transimitable {
 
     public static long MACHINE_CODE;
-
+    private static AtomicInteger sCounter = new AtomicInteger(0);
     private final long timestamp;
     private final int pid;
     private final long machineId;
@@ -106,5 +104,10 @@ public final class MessageId {
         }
 
         return false;
+    }
+
+    @Override
+    public byte[] bytes() {
+        return bytes.clone();
     }
 }
