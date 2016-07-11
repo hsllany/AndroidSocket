@@ -17,7 +17,7 @@ public class FindableDispatcher {
 
     private static FindableDispatcher instance = null;
     private final WeakHashMap<Findable, Object> sFindables = new WeakHashMap<>();
-    private final Map<Class<? extends DispatchMessage>, WeakList<Findable>> sTypeFindables = new HashMap<>();
+    private final Map<Class<? extends Message>, WeakList<Findable>> sTypeFindables = new HashMap<>();
 
     private FindableDispatcher() {
 
@@ -32,13 +32,13 @@ public class FindableDispatcher {
         return instance;
     }
 
-    public synchronized void register(Findable activity, DispatchMessage message) {
+    synchronized void register(Findable activity, DispatchMessage message) {
         synchronized (sFindables) {
             sFindables.put(activity, this);
         }
     }
 
-    public void register(Findable activity, Class<? extends DispatchMessage> messageType) {
+    void register(Findable activity, Class<? extends Message> messageType) {
         synchronized (sTypeFindables) {
             WeakList<Findable> list = sTypeFindables.get(messageType);
             if (list == null) {

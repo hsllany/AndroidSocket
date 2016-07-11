@@ -1,6 +1,6 @@
 package com.ubirouting.instantmsg;
 
-import com.ubirouting.instantmsg.msgs.Message;
+import com.ubirouting.instantmsg.msgs.DispatchMessage;
 import com.ubirouting.instantmsg.processor.MessageAnnotation;
 import com.ubirouting.instantmsg.processor.MessageType;
 
@@ -11,7 +11,7 @@ import com.ubirouting.instantmsg.processor.MessageType;
         code = 2,
         type = MessageType.ALL
 )
-public class ExampleMessage extends Message {
+public class ExampleMessage extends DispatchMessage {
 
     public ExampleMessage(byte[] rawBytes) {
         super(rawBytes);
@@ -24,6 +24,6 @@ public class ExampleMessage extends Message {
 
     @Override
     protected void initWithBytes(byte[] bytes) {
-        
+
     }
 }

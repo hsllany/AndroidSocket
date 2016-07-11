@@ -30,7 +30,7 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
         MessageService.getInstance().sendMessage(msg);
     }
 
-    public final void registerListener(Class<? extends DispatchMessage> msgClass, MessageConsumeListener l) {
+    public final void registerListener(Class<? extends Message> msgClass, MessageConsumeListener l) {
         synchronized (mTypeList) {
             mTypeList.put(msgClass, l);
         }

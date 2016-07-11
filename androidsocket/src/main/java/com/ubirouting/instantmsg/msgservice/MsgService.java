@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -52,12 +53,14 @@ public final class MsgService extends Service {
     }
 
     private static void readBytes(InputStream in, byte[] buffer, int readLength) throws IOException {
+
+//        debug(Arrays.toString(temp));
         int start = 0;
         int left = readLength;
         while (start < readLength) {
             int r = in.read(buffer, start, left);
             if (r == -1) //reach the end of the stream
-                return;
+                throw new IOException("reach the end of the socket.");
             start += r;
             left -= r;
         }
@@ -134,14 +137,14 @@ public final class MsgService extends Service {
      * @throws IOException
      */
     protected final void sendMessageToSocketStream(Message message) throws IOException {
-        debug("[SENDING]:" + message.toString());
+
         byte[] bytes = message.bytes();
         int code = MessageFactory.codeFromMessage(message);
 
         byte[] actualBytes = new byte[bytes.length + 4 + 4];
-        PrimaryDatas.i2b(bytes.length, actualBytes, 0);
+        PrimaryDatas.i2b(bytes.length + 4, actualBytes, 0);
         PrimaryDatas.i2b(code, actualBytes, 4);
-
+        debug("[SENDING]:" + message.toString() + "@" + Arrays.toString(actualBytes));
         sendBytes(socket.getOutputStream(), actualBytes);
     }
 
@@ -168,6 +171,7 @@ public final class MsgService extends Service {
                     wait(200);
                 }
             } catch (InterruptedException e) {
+                e.printStackTrace();
                 return false;
             }
         }
@@ -183,6 +187,7 @@ public final class MsgService extends Service {
             debug("[CONNECTING SUCCESSFULLY");
             return true;
         } catch (IOException e) {
+            e.printStackTrace();
             return false;
         }
     }
@@ -191,8 +196,19 @@ public final class MsgService extends Service {
 
     }
 
-    private final void calculateHeartbeatTime() {
+    private void calculateHeartbeatTime() {
         heartbeatTime = (int) (MsgServiceConfig.MIN_HEARTBEAT_TIME + INCREMENT_HEARTBEAT_INTERVAL * continusHeartbeatCount);
+    }
+
+    private void closeSocket() {
+        try {
+            if (socket != null)
+                socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        socket = null;
     }
 
     private class ReadingThread extends Thread {
@@ -208,6 +224,8 @@ public final class MsgService extends Service {
                     return;
                 }
 
+                debug("START TO READ");
+
                 while (true) {
                     try {
                         // read the first 8 byte to get the length of the message, and the message code
@@ -216,17 +234,24 @@ public final class MsgService extends Service {
                         int msgCode = PrimaryDatas.b2i(msgLengthBuffer, 4);
 
                         byte[] msgBuffer = new byte[PrimaryDatas.b2i(msgLengthBuffer, 0)];
-                        readBytes(socket.getInputStream(), msgBuffer, msgLength);
+
+                        // msgLength contains the 4 byte of msgCode
+                        readBytes(socket.getInputStream(), msgBuffer, msgLength - 4);
                         Message message = processMsg(msgBuffer, msgCode);
-
-                        debug("[RECEIVING]:" + message.toString());
-
-                        dispatchMessagesQueue.put(message);
+                        if (message != null) {
+                            debug("[RECEIVING]:" + message.toString());
+                            dispatchMessagesQueue.put(message);
+                        } else {
+                            Log.e(TAG, "unknown msgCode " + msgCode);
+                        }
 
                         readRound++;
                     } catch (IOException | InterruptedException e) {
+                        closeSocket();
+                        e.printStackTrace();
                         // IO Exception means connection failed
                         sendingThread.interrupt();
+
                         break;
                     }
                 }
@@ -261,17 +286,18 @@ public final class MsgService extends Service {
         public void run() {
             debug("[WAIT FOR MESSAGE TO SEND]");
             while (isRunFlag) {
-
+                debug("[SEND ROUND]");
                 if (socket == null || !socket.isConnected()) {
                     if (reconnect()) {
                         readDelaySemaphore.release();
 
-                        while (true) {
+                        while (!Thread.interrupted()) {
                             DispatchMessage sendMsg;
 
                             try {
                                 sendMsg = sendMessagesQueue.poll(heartbeatTime / 1000, TimeUnit.SECONDS);
                             } catch (InterruptedException e) {
+                                closeSocket();
                                 break;
                             }
 
@@ -290,6 +316,7 @@ public final class MsgService extends Service {
                                 calculateHeartbeatTime();
                                 writeRound++;
                             } catch (IOException e) {
+                                closeSocket();
                                 break;
                             }
                         }

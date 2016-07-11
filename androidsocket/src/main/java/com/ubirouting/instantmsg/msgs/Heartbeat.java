@@ -10,7 +10,7 @@ import com.ubirouting.instantmsg.processor.MessageType;
 public class Heartbeat extends Message {
 
     public static Heartbeat HEARTBEAT_MSG = new Heartbeat();
-    private static byte[] sHeartbeat = new byte[]{1, 0, 0, 0, 1};
+    private static byte[] sHeartbeat = new byte[]{0};
 
     static {
         HEARTBEAT_MSG.src = Message.SRC_CLIENT;
