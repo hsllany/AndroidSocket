@@ -17,20 +17,12 @@ public class Heartbeat extends Message {
     }
 
     public Heartbeat() {
-
+        super();
     }
 
-    public Heartbeat(byte[] rawBytes) {
-        super(rawBytes);
-    }
 
     @Override
-    public byte[] bytes() {
-        return sHeartbeat;
-    }
-
-    @Override
-    protected void initWithBytes(byte[] bytes) {
-
+    public String toString() {
+        return "[com.ubirouting.instantmsg.msgs.Heartbeat]";
     }
 }

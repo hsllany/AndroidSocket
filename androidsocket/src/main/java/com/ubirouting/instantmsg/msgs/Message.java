@@ -29,21 +29,12 @@ public abstract class Message implements Transimitable {
         status = STATUS_TO_BE_SEND;
     }
 
-    public Message(byte[] rawSource) {
-        src = SRC_SERVER;
-        status = STATUS_SERVER;
-
-        initWithBytes(rawSource);
-    }
-
     public final void updateStatus(int newStatus) {
         if (src == SRC_SERVER)
             throw new UnsupportedOperationException("can't modify the status");
         $Checkr.checkRange(newStatus, STATUS_FAILED, STATUS_SERVER, STATUS_SEND, STATUS_TO_BE_SEND);
         status = newStatus;
     }
-
-    protected abstract void initWithBytes(byte[] bytes);
 
     public int getStatus() {
         return status;

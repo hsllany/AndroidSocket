@@ -105,9 +105,4 @@ public final class MessageId implements Transimitable {
 
         return false;
     }
-
-    @Override
-    public byte[] bytes() {
-        return bytes.clone();
-    }
 }

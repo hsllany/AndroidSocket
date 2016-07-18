@@ -3,10 +3,10 @@ package com.ubirouting.instantmsg.msgdispatcher;
 import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
 
-import com.ubirouting.instantmsg.MessageService;
 import com.ubirouting.instantmsg.msgs.DispatchMessage;
 import com.ubirouting.instantmsg.msgs.Message;
 import com.ubirouting.instantmsg.msgs.MessageId;
+import com.ubirouting.instantmsg.msgservice.MsgService;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -27,7 +27,7 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
         }
 
         FindableDispatcher.getInstance().register(this, msg);
-        MessageService.getInstance().sendMessage(msg);
+        MsgService.getInstance().sendMessage(msg);
     }
 
     public final void registerListener(Class<? extends Message> msgClass, MessageConsumeListener l) {

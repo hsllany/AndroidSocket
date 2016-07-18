@@ -3,15 +3,17 @@ package com.ubirouting.instantmsg.msgservice;
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
 import com.ubirouting.instantmsg.msgdispatcher.FindableDispatcher;
 import com.ubirouting.instantmsg.msgdispatcher.PrimaryDatas;
-import com.ubirouting.instantmsg.msgs.DispatchMessage;
 import com.ubirouting.instantmsg.msgs.Heartbeat;
 import com.ubirouting.instantmsg.msgs.Message;
 import com.ubirouting.instantmsg.msgs.MessageFactory;
+import com.ubirouting.instantmsg.serialization.DefaultSerializationFactory;
+import com.ubirouting.instantmsg.serialization.SerializationAbstractFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,34 +29,50 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author Yang Tao on 16/6/30.
  */
-public final class MsgService extends Service {
+public class MsgService extends Service {
 
     private static final String TAG = "MsgService";
     private static final float INCREMENT_HEARTBEAT_INTERVAL = (MsgServiceConfig.MAX_HEARTBEAT_TIME - MsgServiceConfig.MIN_HEARTBEAT_TIME) / 10.f;
+    private static MsgService instance = null;
     // to cache the message to be send, usually send by UI component.
-    private final BlockingQueue<DispatchMessage> sendMessagesQueue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<Message> sendMessagesQueue = new LinkedBlockingQueue<>();
+
     // to cache the message to be dispatched
     private final BlockingQueue<Message> dispatchMessagesQueue = new LinkedBlockingQueue<>();
+
     private SendingThread sendingThread;
+
     private ReadingThread readingThread;
+
     private DispatchThread dispatchThread;
+
     private Socket socket;
+
     // semaphore wait for send to connect
     private Semaphore readDelaySemaphore = new Semaphore(0);
+
     // the formal 4 byte stores the length of the message, the latter 4 byte is code which distinguish messages.
     private byte[] msgLengthBuffer = new byte[8];
+
     private int heartbeatTime = 0;
+
     private int continusHeartbeatCount = 0;
+
     private int readRound = 0;
+
     private int writeRound = 0;
 
-    private static Message processMsg(byte[] msgBytes, int code) {
-        return MessageFactory.buildWithCode(code, msgBytes);
+    private SerializationAbstractFactory serializationAbstractFactory;
+
+    private static Message processMsg(byte[] msgBytes, int code, SerializationAbstractFactory serializationAbstractFactory) {
+        return MessageFactory.buildWithCode(code, msgBytes, serializationAbstractFactory);
+    }
+
+    public static MsgService getInstance() {
+        return instance;
     }
 
     private static void readBytes(InputStream in, byte[] buffer, int readLength) throws IOException {
-
-//        debug(Arrays.toString(temp));
         int start = 0;
         int left = readLength;
         while (start < readLength) {
@@ -79,6 +97,9 @@ public final class MsgService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        instance = this;
+
+        setSerializationFactory();
     }
 
     @Override
@@ -108,6 +129,8 @@ public final class MsgService extends Service {
     public void onDestroy() {
         super.onDestroy();
 
+        instance = null;
+
         if (sendingThread != null) {
             sendingThread.isRunFlag = false;
             sendingThread.interrupt();
@@ -130,20 +153,29 @@ public final class MsgService extends Service {
         return null;
     }
 
+    public final void sendMessage(@NonNull Message message) {
+        sendMessagesQueue.offer(message);
+    }
+
+    protected SerializationAbstractFactory setSerializationFactory() {
+        return new DefaultSerializationFactory();
+    }
+
     /**
      * pack and send the message. pack the byte array with length (int) at first 4 bytes, and code second 4 byte
      *
      * @param message to send
      * @throws IOException
      */
-    protected final void sendMessageToSocketStream(Message message) throws IOException {
+    protected final void sendMessageToSocketStream(@NonNull Message message) throws IOException {
 
-        byte[] bytes = message.bytes();
+        byte[] bytes = serializationAbstractFactory.buildWithObject(message);
         int code = MessageFactory.codeFromMessage(message);
 
         byte[] actualBytes = new byte[bytes.length + 4 + 4];
         PrimaryDatas.i2b(bytes.length + 4, actualBytes, 0);
         PrimaryDatas.i2b(code, actualBytes, 4);
+        System.arraycopy(bytes, 0, actualBytes, 8, bytes.length);
         debug("[SENDING]:" + message.toString() + "@" + Arrays.toString(actualBytes));
         sendBytes(socket.getOutputStream(), actualBytes);
     }
@@ -156,7 +188,7 @@ public final class MsgService extends Service {
             }
 
             synchronized (sendMessagesQueue) {
-                Iterator<DispatchMessage> itr = sendMessagesQueue.iterator();
+                Iterator<Message> itr = sendMessagesQueue.iterator();
                 while (itr.hasNext()) {
                     Message msg = itr.next();
 
@@ -239,7 +271,7 @@ public final class MsgService extends Service {
 
                         // msgLength contains the 4 byte of msgCode
                         readBytes(socket.getInputStream(), msgBuffer, msgLength - 4);
-                        Message message = processMsg(msgBuffer, msgCode);
+                        Message message = processMsg(msgBuffer, msgCode, serializationAbstractFactory);
                         if (message != null) {
                             debug("[RECEIVING]:" + message.toString());
                             dispatchMessagesQueue.put(message);
@@ -294,7 +326,7 @@ public final class MsgService extends Service {
                         readDelaySemaphore.release();
 
                         while (!Thread.interrupted()) {
-                            DispatchMessage sendMsg;
+                            Message sendMsg;
 
                             try {
                                 sendMsg = sendMessagesQueue.poll(heartbeatTime / 1000, TimeUnit.SECONDS);

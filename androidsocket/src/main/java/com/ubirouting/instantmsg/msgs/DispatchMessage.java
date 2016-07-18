@@ -1,18 +1,21 @@
 package com.ubirouting.instantmsg.msgs;
 
+import android.support.annotation.NonNull;
+
 import com.ubirouting.instantmsg.msgdispatcher.Findable;
 
 public abstract class DispatchMessage extends Message {
 
     private MessageId mId;
 
-    public DispatchMessage(Findable findable) {
+
+    public DispatchMessage(@NonNull Findable findable) {
         super();
         mId = new MessageId(findable);
     }
 
-    public DispatchMessage(byte[] rawBytes) {
-        super(rawBytes);
+    public DispatchMessage() {
+        super();
     }
 
     @Override

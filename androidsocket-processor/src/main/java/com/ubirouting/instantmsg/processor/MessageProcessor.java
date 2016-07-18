@@ -131,16 +131,23 @@ public final class MessageProcessor extends AbstractProcessor {
             return false;
         }
 
-        if (element.getAnnotation(MessageAnnotation.class).type() == MessageType.ALL || element.getAnnotation(MessageAnnotation.class).type() == MessageType.READ_ONLY) {
-            if (checkConstructorWithBytes(element)) {
-                return true;
-            } else {
-                error(element, "class should have at least public constructor with 1 parameters of byte array and an empty constructor");
-                return false;
-            }
-        } else {
+        if (checkEmptyConstructor(element)) {
             return true;
         }
+
+        error(element, "class should have at least public constructor with 1 parameters of byte array and an empty constructor");
+        return false;
+
+//        if (element.getAnnotation(MessageAnnotation.class).type() == MessageType.ALL || element.getAnnotation(MessageAnnotation.class).type() == MessageType.READ_ONLY) {
+//            if (checkConstructorWithBytes(element)) {
+//                return true;
+//            } else {
+//                  error(element, "class should have at least public constructor with 1 parameters of byte array and an empty constructor");
+//                  return false;
+//            }
+//        } else {
+//            return true;
+//        }
     }
 
     private boolean checkConstructorWithBytes(Element element) {
@@ -183,12 +190,13 @@ public final class MessageProcessor extends AbstractProcessor {
 
         MethodSpec.Builder methodSpecBuilder = MethodSpec.methodBuilder("buildWithCode").addModifiers(Modifier.PUBLIC, Modifier.STATIC).
                 addParameter(ParameterSpec.builder(TypeName.INT, "msgCode").build()).
-                addParameter(ParameterSpec.builder(ArrayTypeName.of(TypeName.BYTE), "msgBytes").build());
+                addParameter(ParameterSpec.builder(ArrayTypeName.of(TypeName.BYTE), "msgBytes").build()).
+                addParameter(ParameterSpec.builder(ClassName.get("com.ubirouting.instantmsg.serialization", "SerializationAbstractFactory"), "serializationFactory").build());
 
         methodSpecBuilder.addCode("switch(msgCode){");
 
         for (MessageClass messageClass : messageAnnotationList) {
-            methodSpecBuilder.addStatement("case " + messageClass.code + ":\n return new $T(msgBytes)", messageClass.element);
+            methodSpecBuilder.addStatement("case " + messageClass.code + ":\n return serializationFactory.buildViaBytes(msgBytes,  $T.class)", messageClass.element);
         }
 
         methodSpecBuilder.addCode("default:\n\treturn null;\n}\n");
