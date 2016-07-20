@@ -1,6 +1,7 @@
 package com.ubirouting.instantmsg.serialization;
 
 import com.ubirouting.instantmsg.msgs.Transimitable;
+import com.ubirouting.instantmsg.serialization.bytelib.ByteUtils;
 
 /**
  * @author Yang Tao on 16/7/18.
@@ -8,11 +9,11 @@ import com.ubirouting.instantmsg.msgs.Transimitable;
 public class DefaultSerializationFactory implements SerializationAbstractFactory {
     @Override
     public <T extends Transimitable> T buildViaBytes(byte[] rawBytes, Class<T> tClass) {
-        return null;
+        return ByteUtils.toObject(rawBytes, tClass);
     }
 
     @Override
     public byte[] buildWithObject(Transimitable transimitable) {
-        return new byte[0];
+        return ByteUtils.toByte(transimitable);
     }
 }

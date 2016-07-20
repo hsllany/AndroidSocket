@@ -4,6 +4,7 @@ import com.ubirouting.instantmsg.msgdispatcher.Findable;
 import com.ubirouting.instantmsg.msgs.DispatchMessage;
 import com.ubirouting.instantmsg.processor.MessageAnnotation;
 import com.ubirouting.instantmsg.processor.MessageType;
+import com.ubirouting.instantmsg.serialization.bytelib.ToByte;
 
 /**
  * @author Yang Tao on 16/7/4.
@@ -14,6 +15,7 @@ import com.ubirouting.instantmsg.processor.MessageType;
 )
 public class ExampleMessage extends DispatchMessage {
 
+    @ToByte(order = 1)
     String message;
 
     public ExampleMessage(Findable findable, String message) {

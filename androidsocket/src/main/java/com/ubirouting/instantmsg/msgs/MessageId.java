@@ -1,7 +1,8 @@
 package com.ubirouting.instantmsg.msgs;
 
 import com.ubirouting.instantmsg.msgdispatcher.Findable;
-import com.ubirouting.instantmsg.msgdispatcher.PrimaryDatas;
+import com.ubirouting.instantmsg.serialization.bytelib.PrimaryDatas;
+import com.ubirouting.instantmsg.serialization.bytelib.ToByte;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -12,14 +13,21 @@ public final class MessageId implements Transimitable {
 
     public static long MACHINE_CODE;
     private static AtomicInteger sCounter = new AtomicInteger(0);
+
+    @ToByte(order = 1)
     private final long timestamp;
+
+    @ToByte(order = 2)
     private final int pid;
+
+    @ToByte(order = 3)
     private final long machineId;
+
+    @ToByte(order = 4)
     private final long UIId;
+
+    @ToByte(order = 5)
     private final int counter;
-
-
-    private final byte[] bytes = new byte[32];
 
     private MessageId(long timestamp, int pid, long machineId, long UIId, int counter) {
         this.timestamp = timestamp;
@@ -28,26 +36,16 @@ public final class MessageId implements Transimitable {
         this.UIId = UIId;
         this.counter = counter;
 
-        generateByteArrays();
     }
 
     public MessageId(Findable findable) {
         this(System.currentTimeMillis() / 1000, android.os.Process.myPid(), MACHINE_CODE, findable.getFindableId(), sCounter.getAndIncrement());
     }
 
-    public MessageId(byte[] bytesRaw) {
-        this(PrimaryDatas.b2l(bytesRaw, 0), PrimaryDatas.b2i(bytesRaw, 8), PrimaryDatas.b2l(bytesRaw, 12), PrimaryDatas.b2l(bytesRaw, 20), PrimaryDatas.b2i(bytesRaw, 28));
-    }
-
-
-    public MessageId(String string) {
-        this(string.getBytes());
-    }
-
     public String getMessageIdString() {
         if (UIId == -1)
             throw new IllegalStateException("you have not set the UIId");
-        return new String(bytes);
+        return new String(generateByteArrays());
     }
 
     public int getPid() {
@@ -70,13 +68,14 @@ public final class MessageId implements Transimitable {
         return counter;
     }
 
-    private synchronized void generateByteArrays() {
+    private synchronized byte[] generateByteArrays() {
+        byte[] bytes = new byte[32];
         PrimaryDatas.l2b(timestamp, bytes, 0);
         PrimaryDatas.i2b(pid, bytes, 8);
         PrimaryDatas.l2b(machineId, bytes, 12);
         PrimaryDatas.l2b(UIId, bytes, 20);
         PrimaryDatas.i2b(counter, bytes, 28);
-
+        return bytes;
     }
 
     @Override

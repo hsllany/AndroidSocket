@@ -8,12 +8,12 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 
 import com.ubirouting.instantmsg.msgdispatcher.FindableDispatcher;
-import com.ubirouting.instantmsg.msgdispatcher.PrimaryDatas;
 import com.ubirouting.instantmsg.msgs.Heartbeat;
 import com.ubirouting.instantmsg.msgs.Message;
 import com.ubirouting.instantmsg.msgs.MessageFactory;
 import com.ubirouting.instantmsg.serialization.DefaultSerializationFactory;
 import com.ubirouting.instantmsg.serialization.SerializationAbstractFactory;
+import com.ubirouting.instantmsg.serialization.bytelib.PrimaryDatas;
 
 import java.io.IOException;
 import java.io.InputStream;
