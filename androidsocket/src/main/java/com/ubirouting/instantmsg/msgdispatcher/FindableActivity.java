@@ -1,5 +1,12 @@
 package com.ubirouting.instantmsg.msgdispatcher;
 
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
+import android.os.Bundle;
+import android.os.IBinder;
+import android.os.PersistableBundle;
 import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
 
@@ -15,19 +22,30 @@ import java.util.Map;
 /**
  * @author Yang Tao on 16/6/20.
  */
-public abstract class FindableActivity extends AppCompatActivity implements Findable {
+public abstract class FindableActivity extends AppCompatActivity implements Findable, ServiceConnection {
 
     private final Map<MessageId, MessageConsumeListener> mListenerList = new HashMap<>();
     private final Map<Class<? extends Message>, MessageConsumeListener> mTypeList = new ArrayMap<>();
     private final long id = System.currentTimeMillis() + hashCode();
+    private MsgService mService;
+    private volatile boolean isBound;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState, PersistableBundle persistentState) {
+        super.onCreate(savedInstanceState, persistentState);
+        Intent intent = new Intent(this, MsgService.class);
+        bindService(intent, this, Context.BIND_AUTO_CREATE);
+    }
 
     public final void sendMessage(DispatchMessage msg, MessageConsumeListener l) {
-        synchronized (mListenerList) {
-            mListenerList.put(msg.getMessageId(), l);
-        }
+        if (isBound) {
+            synchronized (mListenerList) {
+                mListenerList.put(msg.getMessageId(), l);
+            }
 
-        FindableDispatcher.getInstance().register(this, msg);
-        MsgService.getInstance().sendMessage(msg);
+            FindableDispatcher.getInstance().register(this, msg);
+            mService.sendMessage(msg);
+        }
     }
 
     public final void registerListener(Class<? extends Message> msgClass, MessageConsumeListener l) {
@@ -90,5 +108,17 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
                 }
             }
         }
+    }
+
+    @Override
+    public final void onServiceConnected(ComponentName name, IBinder service) {
+        MsgService.MessageBinder binder = (MsgService.MessageBinder) service;
+        mService = binder.getService();
+        isBound = true;
+    }
+
+    @Override
+    public final void onServiceDisconnected(ComponentName name) {
+        isBound = false;
     }
 }

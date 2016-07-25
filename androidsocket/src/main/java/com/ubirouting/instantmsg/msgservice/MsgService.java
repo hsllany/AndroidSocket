@@ -1,7 +1,13 @@
 package com.ubirouting.instantmsg.msgservice;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.ConnectivityManager;
+import android.net.wifi.WifiManager;
+import android.os.Binder;
 import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -33,7 +39,6 @@ public class MsgService extends Service {
 
     private static final String TAG = "MsgService";
     private static final float INCREMENT_HEARTBEAT_INTERVAL = (MsgServiceConfig.MAX_HEARTBEAT_TIME - MsgServiceConfig.MIN_HEARTBEAT_TIME) / 10.f;
-    private static MsgService instance = null;
     // to cache the message to be send, usually send by UI component.
     private final BlockingQueue<Message> sendMessagesQueue = new LinkedBlockingQueue<>();
 
@@ -64,12 +69,16 @@ public class MsgService extends Service {
 
     private SerializationAbstractFactory serializationAbstractFactory;
 
+    private MessageBinder binder = new MessageBinder();
+    private BroadcastReceiver NetworkStatusReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+
+        }
+    };
+
     private static Message processMsg(byte[] msgBytes, int code, SerializationAbstractFactory serializationAbstractFactory) {
         return MessageFactory.buildWithCode(code, msgBytes, serializationAbstractFactory);
-    }
-
-    public static MsgService getInstance() {
-        return instance;
     }
 
     private static void readBytes(InputStream in, byte[] buffer, int readLength) throws IOException {
@@ -97,9 +106,14 @@ public class MsgService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        instance = this;
 
         setSerializationFactory();
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
+        filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
+        filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
+        registerReceiver(NetworkStatusReceiver, filter);
     }
 
     @Override
@@ -129,8 +143,6 @@ public class MsgService extends Service {
     public void onDestroy() {
         super.onDestroy();
 
-        instance = null;
-
         if (sendingThread != null) {
             sendingThread.isRunFlag = false;
             sendingThread.interrupt();
@@ -145,12 +157,14 @@ public class MsgService extends Service {
             dispatchThread.isRunFlag = false;
             dispatchThread.interrupt();
         }
+
+        unregisterReceiver(NetworkStatusReceiver);
     }
 
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        return binder;
     }
 
     public final void sendMessage(@NonNull Message message) {
@@ -357,6 +371,12 @@ public class MsgService extends Service {
                     }
                 }
             }
+        }
+    }
+
+    public class MessageBinder extends Binder {
+        public final MsgService getService() {
+            return MsgService.this;
         }
     }
 
