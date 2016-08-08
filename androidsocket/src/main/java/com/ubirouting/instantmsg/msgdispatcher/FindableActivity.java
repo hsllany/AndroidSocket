@@ -4,9 +4,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.os.Bundle;
 import android.os.IBinder;
-import android.os.PersistableBundle;
+import android.os.Messenger;
+import android.os.RemoteException;
 import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
 
@@ -27,12 +27,26 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
     private final Map<MessageId, MessageConsumeListener> mListenerList = new HashMap<>();
     private final Map<Class<? extends Message>, MessageConsumeListener> mTypeList = new ArrayMap<>();
     private final long id = System.currentTimeMillis() + hashCode();
-    private MsgService mService;
+    private Messenger mServiceBinder;
     private volatile boolean isBound;
 
+
     @Override
-    public void onCreate(Bundle savedInstanceState, PersistableBundle persistentState) {
-        super.onCreate(savedInstanceState, persistentState);
+    protected void onStart() {
+        super.onStart();
+        bindMsgService();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (isBound) {
+            unbindService(this);
+            isBound = false;
+        }
+    }
+
+    private void bindMsgService() {
         Intent intent = new Intent(this, MsgService.class);
         bindService(intent, this, Context.BIND_AUTO_CREATE);
     }
@@ -44,7 +58,13 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
             }
 
             FindableDispatcher.getInstance().register(this, msg);
-            mService.sendMessage(msg);
+            android.os.Message handlerMessage = android.os.Message.obtain(null, MsgService.MSG_SENDMESSAGE, msg);
+            handlerMessage.replyTo = null;
+            try {
+                mServiceBinder.send(handlerMessage);
+            } catch (RemoteException e) {
+                bindMsgService();
+            }
         }
     }
 
@@ -112,8 +132,7 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
 
     @Override
     public final void onServiceConnected(ComponentName name, IBinder service) {
-        MsgService.MessageBinder binder = (MsgService.MessageBinder) service;
-        mService = binder.getService();
+        mServiceBinder = new Messenger(service);
         isBound = true;
     }
 

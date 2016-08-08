@@ -7,8 +7,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.wifi.WifiManager;
-import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Messenger;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
@@ -37,11 +38,11 @@ import java.util.concurrent.TimeUnit;
  */
 public class MsgService extends Service {
 
+    public static final int MSG_SENDMESSAGE = 0x01;
     private static final String TAG = "MsgService";
     private static final float INCREMENT_HEARTBEAT_INTERVAL = (MsgServiceConfig.MAX_HEARTBEAT_TIME - MsgServiceConfig.MIN_HEARTBEAT_TIME) / 10.f;
     // to cache the message to be send, usually send by UI component.
     private final BlockingQueue<Message> sendMessagesQueue = new LinkedBlockingQueue<>();
-
     // to cache the message to be dispatched
     private final BlockingQueue<Message> dispatchMessagesQueue = new LinkedBlockingQueue<>();
 
@@ -69,7 +70,8 @@ public class MsgService extends Service {
 
     private SerializationAbstractFactory serializationAbstractFactory;
 
-    private MessageBinder binder = new MessageBinder();
+    private Messenger mMessenger = new Messenger(new MessagerHandler());
+
     private BroadcastReceiver NetworkStatusReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -119,24 +121,27 @@ public class MsgService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
 
-        debug("[MSGSERVICE START");
+        if (intent != null) {
 
-        if (sendingThread == null || !sendingThread.isAlive()) {
-            sendingThread = new SendingThread();
-            sendingThread.start();
+            debug("[MSGSERVICE START");
+
+            if (sendingThread == null || !sendingThread.isAlive()) {
+                sendingThread = new SendingThread();
+                sendingThread.start();
+            }
+
+            if (readingThread == null || !readingThread.isAlive()) {
+                readingThread = new ReadingThread();
+                readingThread.start();
+            }
+
+            if (dispatchThread == null || !dispatchThread.isAlive()) {
+                dispatchThread = new DispatchThread();
+                dispatchThread.start();
+            }
         }
 
-        if (readingThread == null || !readingThread.isAlive()) {
-            readingThread = new ReadingThread();
-            readingThread.start();
-        }
-
-        if (dispatchThread == null || !dispatchThread.isAlive()) {
-            dispatchThread = new DispatchThread();
-            dispatchThread.start();
-        }
-
-        return super.onStartCommand(intent, flags, startId);
+        return Service.START_STICKY;
     }
 
     @Override
@@ -164,10 +169,10 @@ public class MsgService extends Service {
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return binder;
+        return mMessenger.getBinder();
     }
 
-    public final void sendMessage(@NonNull Message message) {
+    protected final void sendMessage(@NonNull Message message) {
         sendMessagesQueue.offer(message);
     }
 
@@ -374,9 +379,20 @@ public class MsgService extends Service {
         }
     }
 
-    public class MessageBinder extends Binder {
-        public final MsgService getService() {
-            return MsgService.this;
+    class MessagerHandler extends Handler {
+
+        @Override
+        public void handleMessage(android.os.Message msg) {
+            switch (msg.what) {
+                case MSG_SENDMESSAGE:
+                    if (msg.obj != null && msg.obj instanceof Message)
+                        MsgService.this.sendMessage((Message) (msg.obj));
+                    else
+                        Log.e(TAG, "msg contains no Message");
+                default:
+                    super.handleMessage(msg);
+            }
+
         }
     }
 
