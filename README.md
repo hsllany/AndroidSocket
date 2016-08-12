@@ -5,7 +5,7 @@ A test expirement of communication from service to activities.
 
 ###Usage
 
-Send message to Instante Message Service(not included in this rep.), which is responsibile for communication with Server. When client receive the reply message, which has the same MessageId with the sending one, MessageConsumeListener will be invoked to update UI.
+Send instantMessage to Instante Message Service(not included in this rep.), which is responsibile for communication with Server. When client receive the reply instantMessage, which has the same MessageId with the sending one, MessageConsumeListener will be invoked to update UI.
 
 ```
 	Message sendMessage = new Message();
