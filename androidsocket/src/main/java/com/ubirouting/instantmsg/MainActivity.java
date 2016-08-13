@@ -9,11 +9,11 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.ubirouting.instantmsg.msgdispatcher.FindableActivity;
-import com.ubirouting.instantmsg.msgdispatcher.Loader;
-import com.ubirouting.instantmsg.msgdispatcher.MessageConsumeListener;
+import com.ubirouting.instantmsg.basic.FindableActivity;
+import com.ubirouting.instantmsg.basic.Loader;
+import com.ubirouting.instantmsg.basic.MessageConsumeListener;
 import com.ubirouting.instantmsg.msgs.Heartbeat;
-import com.ubirouting.instantmsg.msgs.Message;
+import com.ubirouting.instantmsg.msgs.InstantMessage;
 import com.ubirouting.instantmsg.msgservice.MsgService;
 
 public class MainActivity extends FindableActivity {
@@ -41,7 +41,7 @@ public class MainActivity extends FindableActivity {
             public void onClick(View v) {
                 MainActivity.this.sendMessage(new ExampleMessage(MainActivity.this, "Hello world"), new MessageConsumeListener() {
                     @Override
-                    public void consume(Message msg) {
+                    public void consume(InstantMessage msg) {
                         Toast.makeText(MainActivity.this, msg.toString(), Toast.LENGTH_SHORT).show();
                     }
                 });
@@ -53,10 +53,15 @@ public class MainActivity extends FindableActivity {
 
         registerListener(Heartbeat.class, new MessageConsumeListener() {
             @Override
-            public void consume(Message msg) {
+            public void consume(InstantMessage msg) {
                 sb.append(msg + "\n");
                 mTxt.setText(sb.toString());
             }
         });
+    }
+
+    @Override
+    public int getFindableId() {
+        return 1;
     }
 }

@@ -7,23 +7,21 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.wifi.WifiManager;
-import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Messenger;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
-import com.ubirouting.instantmsg.msgdispatcher.FindableDispatcher;
 import com.ubirouting.instantmsg.msgs.Heartbeat;
-import com.ubirouting.instantmsg.msgs.Message;
+import com.ubirouting.instantmsg.msgs.InstantMessage;
 import com.ubirouting.instantmsg.msgs.MessageFactory;
 import com.ubirouting.instantmsg.serialization.DefaultSerializationFactory;
 import com.ubirouting.instantmsg.serialization.SerializationAbstractFactory;
 import com.ubirouting.instantmsg.serialization.bytelib.PrimaryDatas;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -33,17 +31,26 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * Work as a service, receive the message from UI and send to remote server, and get response from
+ * remote server.
+ *
  * @author Yang Tao on 16/6/30.
  */
-public class MsgService extends Service {
+public abstract class MsgService extends Service {
+
+    public static final int MSG_SEND_MESSAGE = 0x01;
+
+    public static final int MSG_RESPONSE_MESSAGE = 0x02;
 
     private static final String TAG = "MsgService";
+
     private static final float INCREMENT_HEARTBEAT_INTERVAL = (MsgServiceConfig.MAX_HEARTBEAT_TIME - MsgServiceConfig.MIN_HEARTBEAT_TIME) / 10.f;
+
     // to cache the message to be send, usually send by UI component.
-    private final BlockingQueue<Message> sendMessagesQueue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<InstantMessage> sendMessagesQueue = new LinkedBlockingQueue<>();
 
     // to cache the message to be dispatched
-    private final BlockingQueue<Message> dispatchMessagesQueue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<InstantMessage> dispatchMessagesQueue = new LinkedBlockingQueue<>();
 
     private SendingThread sendingThread;
 
@@ -69,7 +76,10 @@ public class MsgService extends Service {
 
     private SerializationAbstractFactory serializationAbstractFactory;
 
-    private MessageBinder binder = new MessageBinder();
+    private Messenger mMessenger = new Messenger(new MessagerHandler());
+
+    private MsgDispatcher msgDispatcher;
+
     private BroadcastReceiver NetworkStatusReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -77,25 +87,8 @@ public class MsgService extends Service {
         }
     };
 
-    private static Message processMsg(byte[] msgBytes, int code, SerializationAbstractFactory serializationAbstractFactory) {
+    private static InstantMessage processMsg(byte[] msgBytes, int code, SerializationAbstractFactory serializationAbstractFactory) {
         return MessageFactory.buildWithCode(code, msgBytes, serializationAbstractFactory);
-    }
-
-    private static void readBytes(InputStream in, byte[] buffer, int readLength) throws IOException {
-        int start = 0;
-        int left = readLength;
-        while (start < readLength) {
-            int r = in.read(buffer, start, left);
-            if (r == -1) //reach the end of the stream
-                throw new IOException("reach the end of the socket.");
-            start += r;
-            left -= r;
-        }
-    }
-
-    private static void sendBytes(OutputStream out, byte[] buffer) throws IOException {
-        out.write(buffer);
-        out.flush();
     }
 
     static void debug(String format, Object... objects) {
@@ -107,18 +100,36 @@ public class MsgService extends Service {
     public void onCreate() {
         super.onCreate();
 
-        setSerializationFactory();
-
         IntentFilter filter = new IntentFilter();
         filter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
         filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
         filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
         registerReceiver(NetworkStatusReceiver, filter);
+
+        serializationAbstractFactory = loadSerializationFactory();
+        if (serializationAbstractFactory == null) {
+            serializationAbstractFactory = new DefaultSerializationFactory();
+        }
+
+        msgDispatcher = loadMessageDispatcher();
+        if (msgDispatcher == null) {
+            msgDispatcher = new EmptyMsgDispatcher();
+        }
     }
+
+    /**
+     * Invoked at {@code onCreate()} of msgService, to get the {@link MsgDispatcher} object. If return null, than a
+     * default implementation {@link MsgService.EmptyMsgDispatcher} will be used, which do nothing when message
+     * arrives..
+     *
+     * @return the MsgDispatcher
+     */
+    protected abstract MsgDispatcher loadMessageDispatcher();
+
+    protected abstract SerializationAbstractFactory loadSerializationFactory();
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-
         debug("[MSGSERVICE START");
 
         if (sendingThread == null || !sendingThread.isAlive()) {
@@ -136,7 +147,8 @@ public class MsgService extends Service {
             dispatchThread.start();
         }
 
-        return super.onStartCommand(intent, flags, startId);
+
+        return Service.START_STICKY;
     }
 
     @Override
@@ -164,51 +176,59 @@ public class MsgService extends Service {
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return binder;
-    }
-
-    public final void sendMessage(@NonNull Message message) {
-        sendMessagesQueue.offer(message);
-    }
-
-    protected SerializationAbstractFactory setSerializationFactory() {
-        return new DefaultSerializationFactory();
+        return mMessenger.getBinder();
     }
 
     /**
-     * pack and send the message. pack the byte array with length (int) at first 4 bytes, and code second 4 byte
+     * add the instant message to the {@code sendMessageQueue}, which will be send sequentially。.
      *
-     * @param message to send
+     * @param instantMessage to send.
+     */
+    protected final void sendInstantMessage(@NonNull InstantMessage instantMessage) {
+        sendMessagesQueue.offer(instantMessage);
+    }
+
+
+    /**
+     * pack and send the instantMessage. pack the byte array with length (int) at first 4 bytes, and code second 4 byte
+     *
+     * @param instantMessage to send
      * @throws IOException
      */
-    protected final void sendMessageToSocketStream(@NonNull Message message) throws IOException {
+    protected final void sendMessageToSocketStream(@NonNull InstantMessage instantMessage) throws IOException {
 
-        byte[] bytes = serializationAbstractFactory.buildWithObject(message);
-        int code = MessageFactory.codeFromMessage(message);
+        byte[] bytes = serializationAbstractFactory.buildWithObject(instantMessage);
+        int code = MessageFactory.codeFromMessage(instantMessage);
 
         byte[] actualBytes = new byte[bytes.length + 4 + 4];
         PrimaryDatas.i2b(bytes.length + 4, actualBytes, 0);
         PrimaryDatas.i2b(code, actualBytes, 4);
         System.arraycopy(bytes, 0, actualBytes, 8, bytes.length);
-        debug("[SENDING]:" + message.toString() + "@" + Arrays.toString(actualBytes));
-        sendBytes(socket.getOutputStream(), actualBytes);
+        debug("[SENDING]:" + instantMessage.toString() + "@" + Arrays.toString(actualBytes));
+        SocketUtils.sendBytes(socket.getOutputStream(), actualBytes);
     }
 
-    protected final boolean reconnect() {
+    /**
+     * try to reconnect to remote server.
+     *
+     * @return
+     */
+    private boolean reconnect() {
         while (true) {
             if (NetworkUtils.isNetworkAvailable(this)) {
                 if (connect())
                     return true;
             }
 
+            // Test the timeout status of the message. If timeout happens, will send it back to Client process.
             synchronized (sendMessagesQueue) {
-                Iterator<Message> itr = sendMessagesQueue.iterator();
+                Iterator<InstantMessage> itr = sendMessagesQueue.iterator();
                 while (itr.hasNext()) {
-                    Message msg = itr.next();
+                    InstantMessage msg = itr.next();
 
                     if (System.currentTimeMillis() - msg.getTimestamp() > MsgServiceConfig.MESSAGE_SEND_TIME_OUT) {
                         itr.remove();
-                        msg.updateStatus(Message.STATUS_FAILED);
+                        msg.updateStatus(InstantMessage.STATUS_FAILED);
                         dispatchMessagesQueue.offer(msg);
                     }
                 }
@@ -225,7 +245,7 @@ public class MsgService extends Service {
         }
     }
 
-    protected final boolean connect() {
+    private boolean connect() {
         try {
             debug("[CONNECTING..]");
             socket = new Socket(MsgServiceConfig.HOST, MsgServiceConfig.PORT);
@@ -240,7 +260,7 @@ public class MsgService extends Service {
         }
     }
 
-    protected void processMsgBeforeDispatch(Message message) {
+    protected void processMsgBeforeDispatch(InstantMessage instantMessage) {
 
     }
 
@@ -257,6 +277,17 @@ public class MsgService extends Service {
         }
 
         socket = null;
+    }
+
+    /**
+     * Default MsgDispatcher, but doing nothing. Just in case of the Null pointer of msgDispatcher test.
+     */
+    private static class EmptyMsgDispatcher extends MsgDispatcher {
+
+        @Override
+        void dispatch(InstantMessage instantMessage) {
+            // empty
+        }
     }
 
     private class ReadingThread extends Thread {
@@ -276,19 +307,19 @@ public class MsgService extends Service {
 
                 while (true) {
                     try {
-                        // read the first 8 byte to get the length of the message, and the message code
-                        readBytes(socket.getInputStream(), msgLengthBuffer, 8);
+                        // read the first 8 byte to get the length of the instantMessage, and the instantMessage code
+                        SocketUtils.readBytes(socket.getInputStream(), msgLengthBuffer, 8);
                         int msgLength = PrimaryDatas.b2i(msgLengthBuffer, 0);
                         int msgCode = PrimaryDatas.b2i(msgLengthBuffer, 4);
 
                         byte[] msgBuffer = new byte[PrimaryDatas.b2i(msgLengthBuffer, 0)];
 
                         // msgLength contains the 4 byte of msgCode
-                        readBytes(socket.getInputStream(), msgBuffer, msgLength - 4);
-                        Message message = processMsg(msgBuffer, msgCode, serializationAbstractFactory);
-                        if (message != null) {
-                            debug("[RECEIVING]:" + message.toString());
-                            dispatchMessagesQueue.put(message);
+                        SocketUtils.readBytes(socket.getInputStream(), msgBuffer, msgLength - 4);
+                        InstantMessage instantMessage = processMsg(msgBuffer, msgCode, serializationAbstractFactory);
+                        if (instantMessage != null) {
+                            debug("[RECEIVING]:" + instantMessage.toString());
+                            dispatchMessagesQueue.put(instantMessage);
                         } else {
                             Log.e(TAG, "unknown msgCode " + msgCode);
                         }
@@ -314,7 +345,7 @@ public class MsgService extends Service {
         public void run() {
             while (isRunFlag) {
                 try {
-                    Message msg = dispatchMessagesQueue.take();
+                    InstantMessage msg = dispatchMessagesQueue.take();
 
                     if (msg != null) {
                         processMsgBeforeDispatch(msg);
@@ -340,7 +371,7 @@ public class MsgService extends Service {
                         readDelaySemaphore.release();
 
                         while (!Thread.interrupted()) {
-                            Message sendMsg;
+                            InstantMessage sendMsg;
 
                             try {
                                 sendMsg = sendMessagesQueue.poll(heartbeatTime / 1000, TimeUnit.SECONDS);
@@ -374,9 +405,26 @@ public class MsgService extends Service {
         }
     }
 
-    public class MessageBinder extends Binder {
-        public final MsgService getService() {
-            return MsgService.this;
+    /**
+     * receive message from Client Process
+     */
+    private class MessagerHandler extends Handler {
+
+        @Override
+        public void handleMessage(android.os.Message msg) {
+            switch (msg.what) {
+                case MSG_SEND_MESSAGE:
+                    if (msg.obj != null && msg.obj instanceof InstantMessage) {
+                        long findableId = msg.arg1;
+                        FindableDispatcher.getInstance().register(msg.replyTo, findableId);
+                        MsgService.this.sendInstantMessage((InstantMessage) (msg.obj));
+
+                    } else
+                        Log.e(TAG, "msg contains no InstantMessage");
+                default:
+                    super.handleMessage(msg);
+            }
+
         }
     }
 

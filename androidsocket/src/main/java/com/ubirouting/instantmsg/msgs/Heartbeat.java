@@ -7,13 +7,13 @@ import com.ubirouting.instantmsg.processor.MessageType;
         code = 1,
         type = MessageType.ALL
 )
-public class Heartbeat extends Message {
+public class Heartbeat extends InstantMessage {
 
     public static Heartbeat HEARTBEAT_MSG = new Heartbeat();
     private static byte[] sHeartbeat = new byte[]{0};
 
     static {
-        HEARTBEAT_MSG.src = Message.SRC_CLIENT;
+        HEARTBEAT_MSG.src = InstantMessage.SRC_CLIENT;
     }
 
     public Heartbeat() {

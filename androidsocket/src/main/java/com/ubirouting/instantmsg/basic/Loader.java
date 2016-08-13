@@ -1,4 +1,4 @@
-package com.ubirouting.instantmsg.msgdispatcher;
+package com.ubirouting.instantmsg.basic;
 
 import android.content.Context;
 import android.telephony.TelephonyManager;

@@ -1,17 +1,19 @@
-package com.ubirouting.instantmsg.msgdispatcher;
+package com.ubirouting.instantmsg.basic;
 
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
-import android.os.PersistableBundle;
+import android.os.Message;
+import android.os.Messenger;
+import android.os.RemoteException;
 import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
 
 import com.ubirouting.instantmsg.msgs.DispatchMessage;
-import com.ubirouting.instantmsg.msgs.Message;
+import com.ubirouting.instantmsg.msgs.InstantMessage;
 import com.ubirouting.instantmsg.msgs.MessageId;
 import com.ubirouting.instantmsg.msgservice.MsgService;
 
@@ -25,14 +27,27 @@ import java.util.Map;
 public abstract class FindableActivity extends AppCompatActivity implements Findable, ServiceConnection {
 
     private final Map<MessageId, MessageConsumeListener> mListenerList = new HashMap<>();
-    private final Map<Class<? extends Message>, MessageConsumeListener> mTypeList = new ArrayMap<>();
-    private final long id = System.currentTimeMillis() + hashCode();
-    private MsgService mService;
+    private final Map<Class<? extends InstantMessage>, MessageConsumeListener> mTypeList = new ArrayMap<>();
+    private final Messenger mMessenger = new Messenger(new MessengerHandler());
+    private Messenger mServiceBinder;
     private volatile boolean isBound;
 
     @Override
-    public void onCreate(Bundle savedInstanceState, PersistableBundle persistentState) {
-        super.onCreate(savedInstanceState, persistentState);
+    protected void onStart() {
+        super.onStart();
+        bindMsgService();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (isBound) {
+            unbindService(this);
+            isBound = false;
+        }
+    }
+
+    private void bindMsgService() {
         Intent intent = new Intent(this, MsgService.class);
         bindService(intent, this, Context.BIND_AUTO_CREATE);
     }
@@ -43,23 +58,21 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
                 mListenerList.put(msg.getMessageId(), l);
             }
 
-            FindableDispatcher.getInstance().register(this, msg);
-            mService.sendMessage(msg);
+            Message handlerMessage = obtainMessage(msg);
+
+            try {
+                mServiceBinder.send(handlerMessage);
+            } catch (RemoteException e) {
+                bindMsgService();
+            }
         }
     }
 
-    public final void registerListener(Class<? extends Message> msgClass, MessageConsumeListener l) {
+    public final void registerListener(Class<? extends InstantMessage> msgClass, MessageConsumeListener l) {
         synchronized (mTypeList) {
             mTypeList.put(msgClass, l);
         }
 
-        FindableDispatcher.getInstance().register(this, msgClass);
-    }
-
-
-    @Override
-    public final long getFindableId() {
-        return id;
     }
 
     @Override
@@ -68,7 +81,7 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
     }
 
     @Override
-    public final void execute(final Message msg) {
+    public final void execute(final InstantMessage msg) {
 
         if (msg instanceof DispatchMessage) {
             DispatchMessage msgDis = (DispatchMessage) msg;
@@ -93,9 +106,9 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
 
 
         synchronized (mTypeList) {
-            Iterator<Map.Entry<Class<? extends Message>, MessageConsumeListener>> itr2 = mTypeList.entrySet().iterator();
+            Iterator<Map.Entry<Class<? extends InstantMessage>, MessageConsumeListener>> itr2 = mTypeList.entrySet().iterator();
             while (itr2.hasNext()) {
-                final Map.Entry<Class<? extends Message>, MessageConsumeListener> entry = itr2.next();
+                final Map.Entry<Class<? extends InstantMessage>, MessageConsumeListener> entry = itr2.next();
 
                 if (entry.getKey().equals(msg.getClass())) {
                     runOnUiThread(new Runnable() {
@@ -110,15 +123,35 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
         }
     }
 
+    private Message obtainMessage(DispatchMessage msg) {
+        android.os.Message handlerMessage = android.os.Message.obtain();
+        handlerMessage.obj = msg;
+        handlerMessage.what = MsgService.MSG_SEND_MESSAGE;
+        handlerMessage.arg1 = getFindableId();
+        handlerMessage.replyTo = mMessenger;
+        return handlerMessage;
+    }
+
     @Override
     public final void onServiceConnected(ComponentName name, IBinder service) {
-        MsgService.MessageBinder binder = (MsgService.MessageBinder) service;
-        mService = binder.getService();
+        mServiceBinder = new Messenger(service);
         isBound = true;
     }
 
     @Override
     public final void onServiceDisconnected(ComponentName name) {
         isBound = false;
+    }
+
+    private class MessengerHandler extends Handler {
+        @Override
+        public void handleMessage(android.os.Message msg) {
+            super.handleMessage(msg);
+
+            if (msg.obj != null && msg.obj instanceof InstantMessage) {
+                InstantMessage dispatchInstantMessage = (InstantMessage) msg.obj;
+
+            }
+        }
     }
 }

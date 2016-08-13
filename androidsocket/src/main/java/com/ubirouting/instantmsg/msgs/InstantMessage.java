@@ -5,7 +5,7 @@ import com.ubirouting.instantmsg.utils.$Checkr;
 /**
  * @author Yang Tao on 16/6/30.
  */
-public abstract class Message implements Transimitable {
+public abstract class InstantMessage implements Transimitable {
 
     public static final int SRC_SERVER = 0x01;
     public static final int SRC_CLIENT = 0x02;
@@ -24,7 +24,7 @@ public abstract class Message implements Transimitable {
 
     private int status;
 
-    public Message() {
+    public InstantMessage() {
         src = SRC_CLIENT;
         status = STATUS_TO_BE_SEND;
     }
