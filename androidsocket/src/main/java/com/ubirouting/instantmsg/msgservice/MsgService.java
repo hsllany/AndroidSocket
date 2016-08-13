@@ -415,7 +415,8 @@ public abstract class MsgService extends Service {
             switch (msg.what) {
                 case MSG_SEND_MESSAGE:
                     if (msg.obj != null && msg.obj instanceof InstantMessage) {
-                        FindableDispatcher.getInstance().register(msg.replyTo);
+                        long findableId = msg.arg1;
+                        FindableDispatcher.getInstance().register(msg.replyTo, findableId);
                         MsgService.this.sendInstantMessage((InstantMessage) (msg.obj));
 
                     } else

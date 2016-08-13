@@ -7,7 +7,7 @@ import com.ubirouting.instantmsg.msgs.InstantMessage;
  */
 public interface Findable {
 
-    long getFindableId();
+    int getFindableId();
 
     void execute(InstantMessage msg);
 

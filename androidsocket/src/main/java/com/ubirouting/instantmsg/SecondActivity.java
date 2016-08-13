@@ -28,4 +28,9 @@ public class SecondActivity extends FindableActivity {
         super.onDestroy();
         Log.d("ACTTEST", "88");
     }
+
+    @Override
+    public int getFindableId() {
+        return 2;
+    }
 }

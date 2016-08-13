@@ -9,10 +9,10 @@ import com.ubirouting.instantmsg.msgs.InstantMessage;
  */
 public class FindableFragment extends Fragment implements Findable {
 
-    final long findableId = System.currentTimeMillis();
+    final int findableId = (int) System.currentTimeMillis();
 
     @Override
-    public long getFindableId() {
+    public int getFindableId() {
         return findableId;
     }
 

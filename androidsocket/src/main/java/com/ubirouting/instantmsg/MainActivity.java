@@ -59,4 +59,9 @@ public class MainActivity extends FindableActivity {
             }
         });
     }
+
+    @Override
+    public int getFindableId() {
+        return 1;
+    }
 }

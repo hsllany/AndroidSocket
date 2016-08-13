@@ -41,7 +41,7 @@ import javax.tools.Diagnostic;
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public final class MessageProcessor extends AbstractProcessor {
 
-    private static final ClassName MESSAGE_TYPE = ClassName.get("com.ubirouting.instantmsg.msgs", "Message");
+    private static final ClassName MESSAGE_TYPE = ClassName.get("com.ubirouting.instantmsg.msgs", "InstantMessage");
     private Types typeUtils;
     private Elements elementUtils;
     private Filer filer;

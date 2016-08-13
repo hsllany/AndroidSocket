@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
 import android.support.v4.util.ArrayMap;
@@ -27,7 +28,6 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
 
     private final Map<MessageId, MessageConsumeListener> mListenerList = new HashMap<>();
     private final Map<Class<? extends InstantMessage>, MessageConsumeListener> mTypeList = new ArrayMap<>();
-    private final long id = System.currentTimeMillis() + hashCode();
     private final Messenger mMessenger = new Messenger(new MessengerHandler());
     private Messenger mServiceBinder;
     private volatile boolean isBound;
@@ -58,8 +58,8 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
                 mListenerList.put(msg.getMessageId(), l);
             }
 
-            android.os.Message handlerMessage = android.os.Message.obtain(null, MsgService.MSG_SEND_MESSAGE, msg);
-            handlerMessage.replyTo = mMessenger;
+            Message handlerMessage = obtainMessage(msg);
+
             try {
                 mServiceBinder.send(handlerMessage);
             } catch (RemoteException e) {
@@ -73,11 +73,6 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
             mTypeList.put(msgClass, l);
         }
 
-    }
-
-    @Override
-    public final long getFindableId() {
-        return id;
     }
 
     @Override
@@ -126,6 +121,15 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
                 }
             }
         }
+    }
+
+    private Message obtainMessage(DispatchMessage msg) {
+        android.os.Message handlerMessage = android.os.Message.obtain();
+        handlerMessage.obj = msg;
+        handlerMessage.what = MsgService.MSG_SEND_MESSAGE;
+        handlerMessage.arg1 = getFindableId();
+        handlerMessage.replyTo = mMessenger;
+        return handlerMessage;
     }
 
     @Override

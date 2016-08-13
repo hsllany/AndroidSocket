@@ -4,13 +4,11 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
 
-import com.ubirouting.instantmsg.basic.Findable;
 import com.ubirouting.instantmsg.basic.WeakList;
 import com.ubirouting.instantmsg.msgs.DispatchMessage;
 import com.ubirouting.instantmsg.msgs.InstantMessage;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.WeakHashMap;
 
@@ -36,9 +34,9 @@ public class FindableDispatcher extends MsgDispatcher {
         return instance;
     }
 
-    public synchronized void register(Messenger activityMessenger, Findable findable) {
+    public synchronized void register(Messenger activityMessenger, long findableId) {
         synchronized (sFindables) {
-            sFindables.put(new MessengerWithId(activityMessenger, findable.getFindableId()), this);
+            sFindables.put(new MessengerWithId(activityMessenger, findableId), this);
         }
     }
 
@@ -60,20 +58,16 @@ public class FindableDispatcher extends MsgDispatcher {
 
         Messenger target = null;
         if (instantMessage instanceof DispatchMessage) {
-            DispatchMessage msg = (DispatchMessage) instantMessage;
+            DispatchMessage dispatchMessage = (DispatchMessage) instantMessage;
             synchronized (sFindables) {
-                Iterator<Map.Entry<MessengerWithId, Object>> itr = sFindables.entrySet().iterator();
-                while (itr.hasNext()) {
-                    Map.Entry<MessengerWithId, Object> entry = itr.next();
+                for (Map.Entry<MessengerWithId, Object> entry : sFindables.entrySet()) {
                     MessengerWithId messengerWithId = entry.getKey();
 
-                    if (messengerWithId.getId() == msg.getMessageId().getUIId()) {
-                        Message dispatchMessage = Message.obtain();
-                        dispatchMessage.what = MsgService.MSG_RESPONSE_MESSAGE;
-                        dispatchMessage.obj = instantMessage;
+                    if (messengerWithId.getId() == dispatchMessage.getMessageId().getUIId()) {
+                        Message msg = obtainMessage(instantMessage);
                         target = messengerWithId.getMessenger();
                         try {
-                            messengerWithId.getMessenger().send(dispatchMessage);
+                            messengerWithId.getMessenger().send(msg);
                         } catch (RemoteException e) {
                             e.printStackTrace();
                         }
@@ -93,9 +87,7 @@ public class FindableDispatcher extends MsgDispatcher {
                         if (target != null && target == activity) {
 
                         } else {
-                            Message msg = Message.obtain();
-                            msg.obj = instantMessage;
-                            msg.what = MsgService.MSG_RESPONSE_MESSAGE;
+                            Message msg = obtainMessage(instantMessage);
                             try {
                                 activity.send(msg);
                             } catch (RemoteException e) {
@@ -108,6 +100,13 @@ public class FindableDispatcher extends MsgDispatcher {
             }
         }
 
+    }
+
+    private Message obtainMessage(InstantMessage instantMessage) {
+        Message msg = Message.obtain();
+        msg.obj = instantMessage;
+        msg.what = MsgService.MSG_RESPONSE_MESSAGE;
+        return msg;
     }
 
     public synchronized void clear() {
