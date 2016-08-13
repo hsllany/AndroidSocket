@@ -1,4 +1,4 @@
-package com.ubirouting.instantmsg.msgdispatcher;
+package com.ubirouting.instantmsg.basic;
 
 import android.support.v4.app.Fragment;
 

@@ -1,6 +1,6 @@
 package com.ubirouting.instantmsg;
 
-import com.ubirouting.instantmsg.msgdispatcher.Findable;
+import com.ubirouting.instantmsg.basic.Findable;
 import com.ubirouting.instantmsg.msgs.DispatchMessage;
 import com.ubirouting.instantmsg.processor.MessageAnnotation;
 import com.ubirouting.instantmsg.processor.MessageType;

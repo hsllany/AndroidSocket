@@ -9,9 +9,9 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.ubirouting.instantmsg.msgdispatcher.FindableActivity;
-import com.ubirouting.instantmsg.msgdispatcher.Loader;
-import com.ubirouting.instantmsg.msgdispatcher.MessageConsumeListener;
+import com.ubirouting.instantmsg.basic.FindableActivity;
+import com.ubirouting.instantmsg.basic.Loader;
+import com.ubirouting.instantmsg.basic.MessageConsumeListener;
 import com.ubirouting.instantmsg.msgs.Heartbeat;
 import com.ubirouting.instantmsg.msgs.InstantMessage;
 import com.ubirouting.instantmsg.msgservice.MsgService;

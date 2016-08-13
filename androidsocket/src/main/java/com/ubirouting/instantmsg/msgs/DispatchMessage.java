@@ -2,7 +2,7 @@ package com.ubirouting.instantmsg.msgs;
 
 import android.support.annotation.NonNull;
 
-import com.ubirouting.instantmsg.msgdispatcher.Findable;
+import com.ubirouting.instantmsg.basic.Findable;
 import com.ubirouting.instantmsg.serialization.bytelib.ToByte;
 
 public abstract class DispatchMessage extends InstantMessage {

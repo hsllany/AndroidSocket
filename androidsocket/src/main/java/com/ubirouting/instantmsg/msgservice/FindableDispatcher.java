@@ -1,10 +1,11 @@
 package com.ubirouting.instantmsg.msgservice;
 
+import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
 
-import com.ubirouting.instantmsg.msgdispatcher.Findable;
-import com.ubirouting.instantmsg.msgdispatcher.WeakList;
+import com.ubirouting.instantmsg.basic.Findable;
+import com.ubirouting.instantmsg.basic.WeakList;
 import com.ubirouting.instantmsg.msgs.DispatchMessage;
 import com.ubirouting.instantmsg.msgs.InstantMessage;
 
@@ -19,8 +20,8 @@ import java.util.WeakHashMap;
 public class FindableDispatcher extends MsgDispatcher {
 
     private static FindableDispatcher instance = null;
-    private final WeakHashMap<Messenger, Object> sFindables = new WeakHashMap<>();
-    private final Map<Class<? extends InstantMessage>, WeakList<Findable>> sTypeFindables = new HashMap<>();
+    private final WeakHashMap<MessengerWithId, Object> sFindables = new WeakHashMap<>();
+    private final Map<Class<? extends InstantMessage>, WeakList<Messenger>> sTypeFindables = new HashMap<>();
 
     private FindableDispatcher() {
 
@@ -35,77 +36,70 @@ public class FindableDispatcher extends MsgDispatcher {
         return instance;
     }
 
-    public synchronized void register(Messenger activityMessenger) {
+    public synchronized void register(Messenger activityMessenger, Findable findable) {
         synchronized (sFindables) {
-            sFindables.put(activityMessenger, this);
+            sFindables.put(new MessengerWithId(activityMessenger, findable.getFindableId()), this);
         }
     }
 
-    @Deprecated
-    public void register(Findable activity, Class<? extends InstantMessage> messageType) {
+    public void register(Messenger activityMessenger, Class<? extends InstantMessage> messageType) {
         synchronized (sTypeFindables) {
-            WeakList<Findable> list = sTypeFindables.get(messageType);
+            WeakList<Messenger> list = sTypeFindables.get(messageType);
             if (list == null) {
                 list = new WeakList<>();
                 sTypeFindables.put(messageType, list);
             }
 
 
-            list.add(activity);
+            list.add(activityMessenger);
         }
     }
 
     @Override
     public void dispatch(InstantMessage instantMessage) {
 
-        Findable target = null;
+        Messenger target = null;
         if (instantMessage instanceof DispatchMessage) {
             DispatchMessage msg = (DispatchMessage) instantMessage;
             synchronized (sFindables) {
-                Iterator<Map.Entry<Messenger, Object>> itr = sFindables.entrySet().iterator();
+                Iterator<Map.Entry<MessengerWithId, Object>> itr = sFindables.entrySet().iterator();
                 while (itr.hasNext()) {
-                    Map.Entry<Messenger, Object> entry = itr.next();
-                    Messenger messenger = entry.getKey();
+                    Map.Entry<MessengerWithId, Object> entry = itr.next();
+                    MessengerWithId messengerWithId = entry.getKey();
 
-                    android.os.Message dispatchMessage = android.os.Message.obtain(null, 1, instantMessage);
-                    try {
-                        messenger.send(dispatchMessage);
-                    } catch (RemoteException e) {
-                        e.printStackTrace();
+                    if (messengerWithId.getId() == msg.getMessageId().getUIId()) {
+                        Message dispatchMessage = Message.obtain();
+                        dispatchMessage.what = MsgService.MSG_RESPONSE_MESSAGE;
+                        dispatchMessage.obj = instantMessage;
+                        target = messengerWithId.getMessenger();
+                        try {
+                            messengerWithId.getMessenger().send(dispatchMessage);
+                        } catch (RemoteException e) {
+                            e.printStackTrace();
+                        }
+
+                        break;
                     }
-
-
-//                    if (findable.getFindableId() == msg.getMessageId().getUIId()) {
-//                        if (findable.hasBeenDestroyed()) {
-//                            itr.remove();
-//                        } else {
-//
-//                            Log.d("MessageService", "active Findable" + findable.toString());
-//                            findable.execute(msg);
-//                            target = findable;
-//                        }
-//
-//                        break;
-//                    }
                 }
             }
         }
 
         synchronized (sTypeFindables) {
-            WeakList<Findable> activityWeakList = sTypeFindables.get(instantMessage.getClass());
+            WeakList<Messenger> activityWeakList = sTypeFindables.get(instantMessage.getClass());
             if (activityWeakList != null) {
                 for (int i = 0; i < activityWeakList.size(); i++) {
-                    Findable activity = activityWeakList.get(i);
+                    Messenger activity = activityWeakList.get(i);
                     if (activity != null) {
-
-
                         if (target != null && target == activity) {
 
                         } else {
-                            if (activity.hasBeenDestroyed())
-                                activityWeakList.remove(i);
-                            else {
-                                activity.execute(instantMessage);
+                            Message msg = Message.obtain();
+                            msg.obj = instantMessage;
+                            msg.what = MsgService.MSG_RESPONSE_MESSAGE;
+                            try {
+                                activity.send(msg);
+                            } catch (RemoteException e) {
+                                e.printStackTrace();
                             }
                         }
                     }
@@ -123,6 +117,24 @@ public class FindableDispatcher extends MsgDispatcher {
 
         synchronized (sTypeFindables) {
             sTypeFindables.clear();
+        }
+    }
+
+    private static class MessengerWithId {
+        private Messenger messenger;
+        private long id;
+
+        MessengerWithId(Messenger mesger, long id) {
+            this.messenger = mesger;
+            this.id = id;
+        }
+
+        public long getId() {
+            return id;
+        }
+
+        public Messenger getMessenger() {
+            return messenger;
         }
     }
 }

@@ -1,6 +1,6 @@
 package com.ubirouting.instantmsg.msgs;
 
-import com.ubirouting.instantmsg.msgdispatcher.Findable;
+import com.ubirouting.instantmsg.basic.Findable;
 import com.ubirouting.instantmsg.serialization.bytelib.PrimaryDatas;
 import com.ubirouting.instantmsg.serialization.bytelib.ToByte;
 

@@ -40,6 +40,8 @@ public abstract class MsgService extends Service {
 
     public static final int MSG_SEND_MESSAGE = 0x01;
 
+    public static final int MSG_RESPONSE_MESSAGE = 0x02;
+
     private static final String TAG = "MsgService";
 
     private static final float INCREMENT_HEARTBEAT_INTERVAL = (MsgServiceConfig.MAX_HEARTBEAT_TIME - MsgServiceConfig.MIN_HEARTBEAT_TIME) / 10.f;

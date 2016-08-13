@@ -3,7 +3,7 @@ package com.ubirouting.instantmsg;
 import android.os.Bundle;
 import android.util.Log;
 
-import com.ubirouting.instantmsg.msgdispatcher.FindableActivity;
+import com.ubirouting.instantmsg.basic.FindableActivity;
 
 /**
  * @author Yang Tao on 16/6/20.
