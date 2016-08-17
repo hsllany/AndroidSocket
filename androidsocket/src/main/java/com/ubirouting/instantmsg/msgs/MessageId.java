@@ -11,9 +11,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class MessageId implements Transimitable {
 
+    public static final int NO_FINDABLE = Integer.MIN_VALUE;
     public static long MACHINE_CODE;
     private static AtomicInteger sCounter = new AtomicInteger(0);
-
     @ToByte(order = 1)
     private final long timestamp;
 
@@ -22,12 +22,10 @@ public final class MessageId implements Transimitable {
 
     @ToByte(order = 3)
     private final long machineId;
-
-    @ToByte(order = 4)
-    private final long UIId;
-
     @ToByte(order = 5)
     private final int counter;
+    @ToByte(order = 4)
+    private long UIId;
 
     private MessageId(long timestamp, int pid, long machineId, long UIId, int counter) {
         this.timestamp = timestamp;
@@ -38,8 +36,16 @@ public final class MessageId implements Transimitable {
 
     }
 
+    public MessageId(int findableId) {
+        this(System.currentTimeMillis() / 1000, android.os.Process.myPid(), MACHINE_CODE, findableId, sCounter.getAndIncrement());
+    }
+
     public MessageId(Findable findable) {
-        this(System.currentTimeMillis() / 1000, android.os.Process.myPid(), MACHINE_CODE, findable.getFindableId(), sCounter.getAndIncrement());
+        this(findable.getFindableId());
+    }
+
+    public MessageId() {
+        this(NO_FINDABLE);
     }
 
     public String getMessageIdString() {
@@ -62,6 +68,10 @@ public final class MessageId implements Transimitable {
 
     public long getUIId() {
         return UIId;
+    }
+
+    public void setUIId(long UIId) {
+        this.UIId = UIId;
     }
 
     public long getCounter() {

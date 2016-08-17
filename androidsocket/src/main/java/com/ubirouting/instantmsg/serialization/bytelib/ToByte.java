@@ -11,6 +11,8 @@ public @interface ToByte {
 
     int LAST = Integer.MAX_VALUE;
 
+    int FIRST = Integer.MIN_VALUE;
+
     int order() default -1;
 
     String description() default "null";

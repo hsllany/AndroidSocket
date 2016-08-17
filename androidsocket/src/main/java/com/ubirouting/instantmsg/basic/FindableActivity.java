@@ -5,17 +5,19 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
 import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
 
-import com.ubirouting.instantmsg.msgs.DispatchMessage;
 import com.ubirouting.instantmsg.msgs.InstantMessage;
 import com.ubirouting.instantmsg.msgs.MessageId;
 import com.ubirouting.instantmsg.msgservice.MsgService;
+import com.ubirouting.instantmsg.msgservice.Transaction;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -28,9 +30,11 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
 
     private final Map<MessageId, MessageConsumeListener> mListenerList = new HashMap<>();
     private final Map<Class<? extends InstantMessage>, MessageConsumeListener> mTypeList = new ArrayMap<>();
-    private final Messenger mMessenger = new Messenger(new MessengerHandler());
+    private HandlerThread executeThread = new HandlerThread("ExcuteDispatchThread");
+    private final Messenger mMessenger = new Messenger(new MessengerHandler(executeThread.getLooper()));
     private Messenger mServiceBinder;
     private volatile boolean isBound;
+
 
     @Override
     protected void onStart() {
@@ -47,18 +51,24 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        executeThread.quit();
+    }
+
     private void bindMsgService() {
         Intent intent = new Intent(this, MsgService.class);
         bindService(intent, this, Context.BIND_AUTO_CREATE);
     }
 
-    public final void sendMessage(DispatchMessage msg, MessageConsumeListener l) {
+    public final void sendMessage(InstantMessage msg, MessageConsumeListener l) {
         if (isBound) {
             synchronized (mListenerList) {
                 mListenerList.put(msg.getMessageId(), l);
             }
 
-            Message handlerMessage = obtainMessage(msg);
+            Message handlerMessage = Transaction.getMessage(msg, mMessenger, this, MsgService.MSG_SEND_MESSAGE);
 
             try {
                 mServiceBinder.send(handlerMessage);
@@ -76,15 +86,10 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
     }
 
     @Override
-    public final boolean hasBeenDestroyed() {
-        return this.isDestroyed();
-    }
+    public final void onGetInstantMessageReply(final InstantMessage msg) {
 
-    @Override
-    public final void execute(final InstantMessage msg) {
-
-        if (msg instanceof DispatchMessage) {
-            DispatchMessage msgDis = (DispatchMessage) msg;
+        if (msg instanceof InstantMessage) {
+            InstantMessage msgDis = msg;
             synchronized (mListenerList) {
                 Iterator<Map.Entry<MessageId, MessageConsumeListener>> itr = mListenerList.entrySet().iterator();
                 while (itr.hasNext()) {
@@ -123,15 +128,6 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
         }
     }
 
-    private Message obtainMessage(DispatchMessage msg) {
-        android.os.Message handlerMessage = android.os.Message.obtain();
-        handlerMessage.obj = msg;
-        handlerMessage.what = MsgService.MSG_SEND_MESSAGE;
-        handlerMessage.arg1 = getFindableId();
-        handlerMessage.replyTo = mMessenger;
-        return handlerMessage;
-    }
-
     @Override
     public final void onServiceConnected(ComponentName name, IBinder service) {
         mServiceBinder = new Messenger(service);
@@ -144,14 +140,21 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
     }
 
     private class MessengerHandler extends Handler {
+
+        public MessengerHandler(Looper looper) {
+            super(looper);
+        }
+
         @Override
         public void handleMessage(android.os.Message msg) {
             super.handleMessage(msg);
 
-            if (msg.obj != null && msg.obj instanceof InstantMessage) {
-                InstantMessage dispatchInstantMessage = (InstantMessage) msg.obj;
-
+            if (msg.obj != null && msg.obj instanceof Transaction) {
+                InstantMessage dispatchInstantMessage = Transaction.getInstantMessage(msg);
+                onGetInstantMessageReply(dispatchInstantMessage);
             }
         }
     }
+
+
 }

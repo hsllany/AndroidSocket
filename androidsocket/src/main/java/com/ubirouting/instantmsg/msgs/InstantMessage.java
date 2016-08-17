@@ -1,12 +1,13 @@
 package com.ubirouting.instantmsg.msgs;
 
+import com.ubirouting.instantmsg.basic.Findable;
+import com.ubirouting.instantmsg.serialization.bytelib.ToByte;
 import com.ubirouting.instantmsg.utils.$Checkr;
 
 /**
  * @author Yang Tao on 16/6/30.
  */
 public abstract class InstantMessage implements Transimitable {
-
     public static final int SRC_SERVER = 0x01;
     public static final int SRC_CLIENT = 0x02;
 
@@ -16,17 +17,32 @@ public abstract class InstantMessage implements Transimitable {
     public static final int STATUS_SERVER = 0x04;
 
     private final long timestamp = System.currentTimeMillis();
-
     /**
-     * src indicate the source of the message, be one of {@code SRC_SERVER} or {@code SRC_CLIENT}
+     * src indicate the source of the instantMessage, be one of {@code SRC_SERVER} or {@code SRC_CLIENT}
      */
     protected int src;
-
+    private int messageCode = MessageFactory.codeFromMessage(this);
     private int status;
+
+    @ToByte(order = ToByte.LAST)
+    private MessageId mId;
 
     public InstantMessage() {
         src = SRC_CLIENT;
         status = STATUS_TO_BE_SEND;
+
+        mId = new MessageId();
+    }
+
+    public InstantMessage(Findable findable) {
+        src = SRC_CLIENT;
+        status = STATUS_TO_BE_SEND;
+
+        mId = new MessageId(findable);
+    }
+
+    public MessageId getMessageId() {
+        return mId;
     }
 
     public final void updateStatus(int newStatus) {
@@ -46,5 +62,16 @@ public abstract class InstantMessage implements Transimitable {
 
     public int getSource() {
         return src;
+    }
+
+    @Override
+    public int hashCode() {
+        return mId.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof InstantMessage && ((InstantMessage) o).mId.equals(mId);
+
     }
 }

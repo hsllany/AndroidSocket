@@ -9,7 +9,5 @@ public interface Findable {
 
     int getFindableId();
 
-    void execute(InstantMessage msg);
-
-    boolean hasBeenDestroyed();
+    void onGetInstantMessageReply(InstantMessage msg);
 }

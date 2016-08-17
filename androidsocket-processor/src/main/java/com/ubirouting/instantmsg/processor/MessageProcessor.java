@@ -191,15 +191,15 @@ public final class MessageProcessor extends AbstractProcessor {
         MethodSpec.Builder methodSpecBuilder = MethodSpec.methodBuilder("buildWithCode").addModifiers(Modifier.PUBLIC, Modifier.STATIC).
                 addParameter(ParameterSpec.builder(TypeName.INT, "msgCode").build()).
                 addParameter(ParameterSpec.builder(ArrayTypeName.of(TypeName.BYTE), "msgBytes").build()).
-                addParameter(ParameterSpec.builder(ClassName.get("com.ubirouting.instantmsg.serialization", "SerializationAbstractFactory"), "serializationFactory").build());
+                addParameter(ParameterSpec.builder(ClassName.get("com.ubirouting.instantmsg.serialization", "AbstractSerializer"), "serializer").build());
 
-        methodSpecBuilder.addCode("switch(msgCode){");
+        methodSpecBuilder.addCode("switch(msgCode){\n");
 
         for (MessageClass messageClass : messageAnnotationList) {
-            methodSpecBuilder.addStatement("case " + messageClass.code + ":\n return serializationFactory.buildViaBytes(msgBytes,  $T.class)", messageClass.element);
+            methodSpecBuilder.addStatement("case " + messageClass.code + ":\n return serializer.buildViaBytes(msgBytes,  $T.class)", messageClass.element);
         }
 
-        methodSpecBuilder.addCode("default:\n\treturn null;\n}\n");
+        methodSpecBuilder.addCode("default:\nreturn null;\n}\n");
 
         builder.addMethod(methodSpecBuilder.returns(MESSAGE_TYPE).build());
 

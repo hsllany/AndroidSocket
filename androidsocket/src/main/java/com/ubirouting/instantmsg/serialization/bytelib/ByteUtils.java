@@ -311,20 +311,13 @@ public final class ByteUtils {
      * @param clazz class of the object
      * @return object
      */
-    // public static Object toObject(byte[] bs, Class<?> clazz) {
-    // ParseInteger pInt = new ParseInteger();
-    // pInt.index = 0;
-    // Object comm = decodeBytes(bs, clazz, pInt);
-    // return comm;
-    // }
     public static <T> T toObject(byte[] bs, Class<T> clazz) {
-
-        ParseInteger pInt = new ParseInteger();
-        pInt.index = 0;
-        Object comm = decodeBytes(bs, clazz, pInt);
-        return (T) comm;
+        return toObject(bs, clazz, 0);
     }
 
+    /**
+     * @see ByteUtils#toObject(byte[], Class)
+     */
     public static <T extends Object> T toObject(byte[] bs, Class<T> clazz, int start) {
 
         ParseInteger pInt = new ParseInteger();

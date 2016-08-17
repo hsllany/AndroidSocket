@@ -1,7 +1,7 @@
 package com.ubirouting.instantmsg;
 
 import com.ubirouting.instantmsg.basic.Findable;
-import com.ubirouting.instantmsg.msgs.DispatchMessage;
+import com.ubirouting.instantmsg.msgs.InstantMessage;
 import com.ubirouting.instantmsg.processor.MessageAnnotation;
 import com.ubirouting.instantmsg.processor.MessageType;
 import com.ubirouting.instantmsg.serialization.bytelib.ToByte;
@@ -13,7 +13,7 @@ import com.ubirouting.instantmsg.serialization.bytelib.ToByte;
         code = 124,
         type = MessageType.ALL
 )
-public class ExampleMessage extends DispatchMessage {
+public class ExampleMessage extends InstantMessage {
 
     @ToByte(order = 1)
     String message;
@@ -30,7 +30,7 @@ public class ExampleMessage extends DispatchMessage {
 
 //    public byte[] bytes() {
 //
-//        byte[] messageBytes = message.getBytes();
+//        byte[] messageBytes = instantMessage.getBytes();
 //
 //        byte[] finalBytes = new byte[messageBytes.length + 4 + 32];
 //

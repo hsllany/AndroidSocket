@@ -5,7 +5,7 @@ import com.ubirouting.instantmsg.msgs.Transimitable;
 /**
  * @author Yang Tao on 16/7/18.
  */
-public interface SerializationAbstractFactory {
+public interface AbstractSerializer {
 
     <T extends Transimitable> T buildViaBytes(byte[] rawBytes, Class<T> tClass);
 

@@ -4,9 +4,10 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
 
+import com.ubirouting.instantmsg.basic.Findable;
 import com.ubirouting.instantmsg.basic.WeakList;
-import com.ubirouting.instantmsg.msgs.DispatchMessage;
 import com.ubirouting.instantmsg.msgs.InstantMessage;
+import com.ubirouting.instantmsg.msgs.MessageId;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -15,29 +16,23 @@ import java.util.WeakHashMap;
 /**
  * @author Yang Tao on 16/6/20.
  */
-public class FindableDispatcher extends MsgDispatcher {
+public class FindableDispatcher {
 
-    private static FindableDispatcher instance = null;
-    private final WeakHashMap<MessengerWithId, Object> sFindables = new WeakHashMap<>();
+    private final WeakHashMap<Messenger, Integer> sFindables = new WeakHashMap<>();
     private final Map<Class<? extends InstantMessage>, WeakList<Messenger>> sTypeFindables = new HashMap<>();
 
-    private FindableDispatcher() {
+    public FindableDispatcher() {
 
     }
 
-    public static FindableDispatcher getInstance() {
-        synchronized (FindableDispatcher.class) {
-            if (instance == null)
-                instance = new FindableDispatcher();
-        }
-
-        return instance;
-    }
-
-    public synchronized void register(Messenger activityMessenger, long findableId) {
+    public void register(Messenger activityMessenger, int findableId) {
         synchronized (sFindables) {
-            sFindables.put(new MessengerWithId(activityMessenger, findableId), this);
+            sFindables.put(activityMessenger, findableId);
         }
+    }
+
+    public void register(Messenger activityMessenger, Findable findable) {
+        register(activityMessenger, findable.getFindableId());
     }
 
     public void register(Messenger activityMessenger, Class<? extends InstantMessage> messageType) {
@@ -53,41 +48,38 @@ public class FindableDispatcher extends MsgDispatcher {
         }
     }
 
-    @Override
-    public void dispatch(InstantMessage instantMessage) {
+    public void dispatch(InstantMessage dispatchMessage) {
+        if (dispatchMessage.getMessageId().getUIId() == MessageId.NO_FINDABLE)
+            return;
 
         Messenger target = null;
-        if (instantMessage instanceof DispatchMessage) {
-            DispatchMessage dispatchMessage = (DispatchMessage) instantMessage;
-            synchronized (sFindables) {
-                for (Map.Entry<MessengerWithId, Object> entry : sFindables.entrySet()) {
-                    MessengerWithId messengerWithId = entry.getKey();
+        synchronized (sFindables) {
+            for (Map.Entry<Messenger, Integer> entry : sFindables.entrySet()) {
+                Messenger messenger = entry.getKey();
+                int findableId = entry.getValue();
 
-                    if (messengerWithId.getId() == dispatchMessage.getMessageId().getUIId()) {
-                        Message msg = obtainMessage(instantMessage);
-                        target = messengerWithId.getMessenger();
-                        try {
-                            messengerWithId.getMessenger().send(msg);
-                        } catch (RemoteException e) {
-                            e.printStackTrace();
-                        }
-
-                        break;
+                if (findableId == dispatchMessage.getMessageId().getUIId()) {
+                    Message msg = Transaction.getMessage(dispatchMessage, null, null, MsgService.MSG_RESPONSE_MESSAGE);
+                    target = messenger;
+                    try {
+                        messenger.send(msg);
+                    } catch (RemoteException e) {
+                        e.printStackTrace();
                     }
+
+                    break;
                 }
             }
         }
 
         synchronized (sTypeFindables) {
-            WeakList<Messenger> activityWeakList = sTypeFindables.get(instantMessage.getClass());
+            WeakList<Messenger> activityWeakList = sTypeFindables.get(dispatchMessage.getClass());
             if (activityWeakList != null) {
                 for (int i = 0; i < activityWeakList.size(); i++) {
                     Messenger activity = activityWeakList.get(i);
                     if (activity != null) {
-                        if (target != null && target == activity) {
-
-                        } else {
-                            Message msg = obtainMessage(instantMessage);
+                        if (target == null || target != activity) {
+                            Message msg = Transaction.getMessage(dispatchMessage, null, null, MsgService.MSG_RESPONSE_MESSAGE);
                             try {
                                 activity.send(msg);
                             } catch (RemoteException e) {
@@ -102,38 +94,13 @@ public class FindableDispatcher extends MsgDispatcher {
 
     }
 
-    private Message obtainMessage(InstantMessage instantMessage) {
-        Message msg = Message.obtain();
-        msg.obj = instantMessage;
-        msg.what = MsgService.MSG_RESPONSE_MESSAGE;
-        return msg;
-    }
-
-    public synchronized void clear() {
+    public void clear() {
         synchronized (sFindables) {
             sFindables.clear();
         }
 
         synchronized (sTypeFindables) {
             sTypeFindables.clear();
-        }
-    }
-
-    private static class MessengerWithId {
-        private Messenger messenger;
-        private long id;
-
-        MessengerWithId(Messenger mesger, long id) {
-            this.messenger = mesger;
-            this.id = id;
-        }
-
-        public long getId() {
-            return id;
-        }
-
-        public Messenger getMessenger() {
-            return messenger;
         }
     }
 }
