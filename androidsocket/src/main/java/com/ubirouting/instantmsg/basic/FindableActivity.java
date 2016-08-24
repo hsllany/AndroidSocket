@@ -4,12 +4,14 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
+import android.os.PersistableBundle;
 import android.os.RemoteException;
 import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
@@ -31,15 +33,23 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
     private final Map<MessageId, MessageConsumeListener> mListenerList = new HashMap<>();
     private final Map<Class<? extends InstantMessage>, MessageConsumeListener> mTypeList = new ArrayMap<>();
     private HandlerThread executeThread = new HandlerThread("ExcuteDispatchThread");
-    private final Messenger mMessenger = new Messenger(new MessengerHandler(executeThread.getLooper()));
+    private Messenger mMessenger;
     private Messenger mServiceBinder;
     private volatile boolean isBound;
 
+    @Override
+    public void onCreate(Bundle savedInstanceState, PersistableBundle persistentState) {
+        super.onCreate(savedInstanceState, persistentState);
+        executeThread.start();
+        mMessenger = new Messenger(new MessengerHandler(executeThread.getLooper()));
+    }
 
     @Override
     protected void onStart() {
         super.onStart();
         bindMsgService();
+
+
     }
 
     @Override

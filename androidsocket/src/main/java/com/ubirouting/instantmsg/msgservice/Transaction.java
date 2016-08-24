@@ -46,7 +46,7 @@ public class Transaction implements Parcelable {
 
     public static Message getMessage(InstantMessage msg, Messenger messenger, Findable findable, int status) {
         android.os.Message handlerMessage = android.os.Message.obtain();
-        handlerMessage.obj = new Transaction(msg);
+        handlerMessage.getData().putParcelable("transaction", new Transaction(msg));
         handlerMessage.what = status;
         if (findable != null)
             handlerMessage.arg1 = findable.getFindableId();
@@ -57,8 +57,9 @@ public class Transaction implements Parcelable {
     }
 
     public static InstantMessage getInstantMessage(Message message) {
-        Transaction transaction = (Transaction) message.obj;
-        return transaction.instantMessage();
+        message.getData().setClassLoader(Transaction.class.getClassLoader());
+        Transaction transaction = message.getData().getParcelable("transaction");
+        return transaction != null ? transaction.instantMessage() : null;
     }
 
     public InstantMessage instantMessage() {

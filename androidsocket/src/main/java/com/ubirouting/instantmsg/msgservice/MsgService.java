@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author Yang Tao on 16/6/30.
  */
-public abstract class MsgService extends Service {
+public class MsgService extends Service {
 
     public static final int MSG_SEND_MESSAGE = 0x01;
 
@@ -90,6 +90,10 @@ public abstract class MsgService extends Service {
     };
 
     private HandlerThread messageThread = new HandlerThread("MessageThread");
+
+    public MsgService() {
+        super();
+    }
 
     private static InstantMessage parseMsgFromRawBytes(byte[] msgBytes, AbstractSerializer abstractSerializer) {
         int code = PrimaryDatas.b2i(msgBytes, 0);
@@ -250,7 +254,9 @@ public abstract class MsgService extends Service {
     protected void hookBeforeDispatch(InstantMessage instantMessage) {
     }
 
-    protected abstract void handleNoFindableMessage(InstantMessage message);
+    protected void handleNoFindableMessage(InstantMessage message) {
+    }
+
 
     private void calculateHeartbeatTime() {
         heartbeatTime = (int) (MsgServiceConfig.MIN_HEARTBEAT_TIME + INCREMENT_HEARTBEAT_INTERVAL * continusHeartbeatCount);
@@ -399,13 +405,9 @@ public abstract class MsgService extends Service {
         public void handleMessage(android.os.Message msg) {
             switch (msg.what) {
                 case MSG_SEND_MESSAGE:
-                    if (msg.obj != null && msg.obj instanceof Transaction) {
-                        int findableId = msg.arg1;
-                        msgDispatcher.register(msg.replyTo, findableId);
-                        addToSendPendingQueue(Transaction.getInstantMessage(msg));
-
-                    } else
-                        Log.e(TAG, "msg contains no InstantMessage");
+                    int findableId = msg.arg1;
+                    msgDispatcher.register(msg.replyTo, findableId);
+                    addToSendPendingQueue(Transaction.getInstantMessage(msg));
                 default:
                     super.handleMessage(msg);
             }

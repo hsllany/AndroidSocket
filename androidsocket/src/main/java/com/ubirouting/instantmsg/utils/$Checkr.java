@@ -45,7 +45,7 @@ public class $Checkr {
         return true;
     }
 
-    public static boolean checkRange(Object toBeChecked, Object... range) {
+    public static boolean checkRangeObj(Object toBeChecked, Object... range) {
         for (Object rangeObj : range) {
             if (!toBeChecked.equals(rangeObj))
                 return false;

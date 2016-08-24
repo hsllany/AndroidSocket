@@ -8,7 +8,7 @@ public final class MsgServiceConfig {
     /**
      * the socket server address
      */
-    public static String HOST = "192.168.1.107";
+    public static String HOST = "192.168.1.105";
     /**
      * the socket server port
      */
