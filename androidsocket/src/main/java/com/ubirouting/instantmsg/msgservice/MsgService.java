@@ -21,8 +21,8 @@ import com.ubirouting.instantmsg.msgs.InstantMessage;
 import com.ubirouting.instantmsg.msgs.MessageFactory;
 import com.ubirouting.instantmsg.msgs.MessageId;
 import com.ubirouting.instantmsg.serialization.AbstractSerializer;
-import com.ubirouting.instantmsg.serialization.Serializer;
 import com.ubirouting.instantmsg.serialization.bytelib.PrimaryDatas;
+import com.ubirouting.instantmsg.utils.Injection;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -116,7 +116,7 @@ public abstract class MsgService extends Service {
         filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
         registerReceiver(NetworkStatusReceiver, filter);
         msgDispatcher = new FindableDispatcher();
-        abstractSerializer = Serializer.serializer();
+        abstractSerializer = Injection.provideSerializer();
     }
 
     @Override

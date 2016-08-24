@@ -32,6 +32,7 @@ dependencies {
     testCompile 'junit:junit:4.12'
     compile 'com.android.support:appcompat-v7:23.3.0'
     compile 'com.android.support:design:23.3.0'
+    compile 'org.jetbrains:annotations-java5:15.0'
 }
 
 task processorTask(type: Exec) {

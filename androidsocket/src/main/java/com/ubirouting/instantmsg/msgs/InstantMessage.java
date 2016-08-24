@@ -21,7 +21,6 @@ public abstract class InstantMessage implements Transimitable {
      * src indicate the source of the instantMessage, be one of {@code SRC_SERVER} or {@code SRC_CLIENT}
      */
     protected int src;
-    private int messageCode = MessageFactory.codeFromMessage(this);
     private int status;
 
     @ToByte(order = ToByte.LAST)

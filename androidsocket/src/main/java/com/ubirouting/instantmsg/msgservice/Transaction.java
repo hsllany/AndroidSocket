@@ -8,8 +8,8 @@ import android.os.Parcelable;
 import com.ubirouting.instantmsg.basic.Findable;
 import com.ubirouting.instantmsg.msgs.InstantMessage;
 import com.ubirouting.instantmsg.msgs.MessageFactory;
-import com.ubirouting.instantmsg.serialization.Serializer;
 import com.ubirouting.instantmsg.serialization.bytelib.PrimaryDatas;
+import com.ubirouting.instantmsg.utils.Injection;
 
 import java.util.Arrays;
 
@@ -32,7 +32,7 @@ public class Transaction implements Parcelable {
     private byte[] transData;
 
     public Transaction(InstantMessage msg) {
-        byte[] msgData = Serializer.serializer().buildWithObject(msg);
+        byte[] msgData = Injection.provideSerializer().buildWithObject(msg);
         int msgCode = MessageFactory.codeFromMessage(msg);
 
         transData = new byte[msgData.length + 4];
@@ -65,7 +65,7 @@ public class Transaction implements Parcelable {
         int msgCode = PrimaryDatas.b2i(transData, 0);
         byte[] msgData = Arrays.copyOfRange(transData, 4, transData.length);
 
-        return MessageFactory.buildWithCode(msgCode, msgData, Serializer.serializer());
+        return MessageFactory.buildWithCode(msgCode, msgData, Injection.provideSerializer());
     }
 
     @Override

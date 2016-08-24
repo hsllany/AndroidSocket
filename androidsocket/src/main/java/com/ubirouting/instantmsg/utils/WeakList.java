@@ -1,4 +1,4 @@
-package com.ubirouting.instantmsg.basic;
+package com.ubirouting.instantmsg.utils;
 
 import android.support.annotation.NonNull;
 

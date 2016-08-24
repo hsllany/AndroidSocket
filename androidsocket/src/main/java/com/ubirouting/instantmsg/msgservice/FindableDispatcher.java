@@ -5,9 +5,9 @@ import android.os.Messenger;
 import android.os.RemoteException;
 
 import com.ubirouting.instantmsg.basic.Findable;
-import com.ubirouting.instantmsg.basic.WeakList;
 import com.ubirouting.instantmsg.msgs.InstantMessage;
 import com.ubirouting.instantmsg.msgs.MessageId;
+import com.ubirouting.instantmsg.utils.WeakList;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -16,14 +16,11 @@ import java.util.WeakHashMap;
 /**
  * @author Yang Tao on 16/6/20.
  */
-public class FindableDispatcher {
+public final class FindableDispatcher {
 
     private final WeakHashMap<Messenger, Integer> sFindables = new WeakHashMap<>();
     private final Map<Class<? extends InstantMessage>, WeakList<Messenger>> sTypeFindables = new HashMap<>();
 
-    public FindableDispatcher() {
-
-    }
 
     public void register(Messenger activityMessenger, int findableId) {
         synchronized (sFindables) {
