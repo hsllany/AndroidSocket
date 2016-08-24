@@ -28,12 +28,26 @@ public class WeakList<T> implements List<T> {
 
     @Override
     public boolean addAll(int location, Collection<? extends T> collection) {
-        throw new UnsupportedOperationException();
+        if (collection.isEmpty())
+            return false;
+
+        int j = location;
+        for (T t : collection) {
+            add(j++, t);
+        }
+        return true;
     }
 
     @Override
     public boolean addAll(Collection<? extends T> collection) {
-        throw new UnsupportedOperationException();
+        if (collection.isEmpty())
+            return false;
+
+        for (T t : collection) {
+            add(t);
+        }
+
+        return true;
     }
 
     @Override
@@ -101,7 +115,7 @@ public class WeakList<T> implements List<T> {
 
     @Override
     public ListIterator<T> listIterator() {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     @NonNull
