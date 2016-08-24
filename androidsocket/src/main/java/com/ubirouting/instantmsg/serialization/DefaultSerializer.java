@@ -1,7 +1,13 @@
 package com.ubirouting.instantmsg.serialization;
 
-import com.ubirouting.instantmsg.msgs.Transimitable;
+import com.ubirouting.instantmsg.msgs.InstantMessage;
+import com.ubirouting.instantmsg.msgs.MessageFactory;
 import com.ubirouting.instantmsg.serialization.bytelib.ByteUtils;
+import com.ubirouting.instantmsg.serialization.bytelib.PrimaryDatas;
+
+import org.jetbrains.annotations.NotNull;
+
+import java.util.Arrays;
 
 /**
  * @author Yang Tao on 16/7/18.
@@ -22,12 +28,21 @@ public class DefaultSerializer implements AbstractSerializer {
     }
 
     @Override
-    public <T extends Transimitable> T buildViaBytes(byte[] rawBytes, Class<T> tClass) {
-        return ByteUtils.toObject(rawBytes, tClass);
+    public Object buildViaBytes(@NotNull byte[] rawBytes) {
+        int code = PrimaryDatas.b2i(rawBytes, 0);
+        byte[] msgByte = Arrays.copyOfRange(rawBytes, 4, rawBytes.length);
+        Class<?> clazz = MessageFactory.messageTypeFromCode(code);
+        return ByteUtils.toObject(msgByte, clazz);
     }
 
     @Override
-    public byte[] buildWithObject(Transimitable transimitable) {
-        return ByteUtils.toByte(transimitable);
+    public byte[] buildWithObject(@NotNull InstantMessage message) {
+        int code = MessageFactory.codeFromMessage(message);
+        byte[] msgBytes = ByteUtils.toByte(message);
+
+        byte[] encodeBytes = new byte[msgBytes.length + 4];
+        PrimaryDatas.i2b(code, encodeBytes, 0);
+        System.arraycopy(msgBytes, 0, encodeBytes, 4, msgBytes.length);
+        return encodeBytes;
     }
 }

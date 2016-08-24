@@ -18,10 +18,10 @@ import android.util.Log;
 
 import com.ubirouting.instantmsg.msgs.Heartbeat;
 import com.ubirouting.instantmsg.msgs.InstantMessage;
-import com.ubirouting.instantmsg.msgs.MessageFactory;
 import com.ubirouting.instantmsg.msgs.MessageId;
 import com.ubirouting.instantmsg.serialization.AbstractSerializer;
 import com.ubirouting.instantmsg.serialization.bytelib.PrimaryDatas;
+import com.ubirouting.instantmsg.utils.$Checkr;
 import com.ubirouting.instantmsg.utils.Injection;
 
 import java.io.IOException;
@@ -31,6 +31,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+
+import static com.ubirouting.instantmsg.msgservice.Transaction.*;
 
 /**
  * Work as a service, receive the instantMessage from UI and send to remote server, and get response from
@@ -96,10 +98,7 @@ public class MsgService extends Service {
     }
 
     private static InstantMessage parseMsgFromRawBytes(byte[] msgBytes, AbstractSerializer abstractSerializer) {
-        int code = PrimaryDatas.b2i(msgBytes, 0);
-        byte[] messageContentBytes = new byte[msgBytes.length - 4];
-        System.arraycopy(msgBytes, 4, messageContentBytes, 0, messageContentBytes.length);
-        return MessageFactory.buildWithCode(code, messageContentBytes, abstractSerializer);
+        return (InstantMessage) abstractSerializer.buildViaBytes(msgBytes);
     }
 
     protected static void debug(String format, Object... objects) {
@@ -125,7 +124,7 @@ public class MsgService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        debug("[MSGSERVICE START");
+        debug("[MSG SERVICE START");
 
         if (sendingThread == null || !sendingThread.isAlive()) {
             sendingThread = new SendingThread();
@@ -191,6 +190,7 @@ public class MsgService extends Service {
      * @throws IOException
      */
     protected final void sendMessageToSocketStream(@NonNull InstantMessage instantMessage) throws IOException {
+        $Checkr.notNull(instantMessage, "instant message can't be null");
         byte[] bytes = abstractSerializer.buildWithObject(instantMessage);
         byte[] actualBytes = new byte[bytes.length + 4];
         PrimaryDatas.i2b(bytes.length, actualBytes, 0);
@@ -332,7 +332,7 @@ public class MsgService extends Service {
                         if (msg.getMessageId().getUIId() == MessageId.NO_FINDABLE) {
                             handleNoFindableMessage(msg);
                         } else {
-                            msgDispatcher.dispatch(msg);
+                            msgDispatcher.dispatch(msg, Injection.provideSerializer());
                         }
                     }
                 } catch (InterruptedException e) {
@@ -407,7 +407,7 @@ public class MsgService extends Service {
                 case MSG_SEND_MESSAGE:
                     int findableId = msg.arg1;
                     msgDispatcher.register(msg.replyTo, findableId);
-                    addToSendPendingQueue(Transaction.getInstantMessage(msg));
+                    addToSendPendingQueue(getInstantMessage(msg, Injection.provideSerializer()));
                 default:
                     super.handleMessage(msg);
             }

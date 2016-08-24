@@ -1,6 +1,5 @@
 package com.ubirouting.instantmsg.processor;
 
-import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
@@ -42,6 +41,7 @@ import javax.tools.Diagnostic;
 public final class MessageProcessor extends AbstractProcessor {
 
     private static final ClassName MESSAGE_TYPE = ClassName.get("com.ubirouting.instantmsg.msgs", "InstantMessage");
+    private static final ClassName CLASS_TYPE = ClassName.get(Class.class);
     private Types typeUtils;
     private Elements elementUtils;
     private Filer filer;
@@ -188,20 +188,18 @@ public final class MessageProcessor extends AbstractProcessor {
 
     private void buildMessageFactoryJava(TypeSpec.Builder builder) {
 
-        MethodSpec.Builder methodSpecBuilder = MethodSpec.methodBuilder("buildWithCode").addModifiers(Modifier.PUBLIC, Modifier.STATIC).
-                addParameter(ParameterSpec.builder(TypeName.INT, "msgCode").build()).
-                addParameter(ParameterSpec.builder(ArrayTypeName.of(TypeName.BYTE), "msgBytes").build()).
-                addParameter(ParameterSpec.builder(ClassName.get("com.ubirouting.instantmsg.serialization", "AbstractSerializer"), "serializer").build());
+        MethodSpec.Builder methodSpecBuilder = MethodSpec.methodBuilder("messageTypeFromCode").addModifiers(Modifier.PUBLIC, Modifier.STATIC).
+                addParameter(ParameterSpec.builder(TypeName.INT, "msgCode").build());
 
         methodSpecBuilder.addCode("switch(msgCode){\n");
 
         for (MessageClass messageClass : messageAnnotationList) {
-            methodSpecBuilder.addStatement("case " + messageClass.code + ":\n return serializer.buildViaBytes(msgBytes,  $T.class)", messageClass.element);
+            methodSpecBuilder.addStatement("case " + messageClass.code + ":\n return $T.class", messageClass.element);
         }
 
         methodSpecBuilder.addCode("default:\nreturn null;\n}\n");
 
-        builder.addMethod(methodSpecBuilder.returns(MESSAGE_TYPE).build());
+        builder.addMethod(methodSpecBuilder.returns(CLASS_TYPE).build());
 
     }
 

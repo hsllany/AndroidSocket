@@ -1,6 +1,7 @@
 package com.ubirouting.instantmsg.msgs;
 
 import com.ubirouting.instantmsg.basic.Findable;
+import com.ubirouting.instantmsg.serialization.AbstractSerializer;
 import com.ubirouting.instantmsg.serialization.bytelib.ToByte;
 import com.ubirouting.instantmsg.utils.$Checkr;
 
@@ -22,6 +23,8 @@ public abstract class InstantMessage implements Transimitable {
      */
     protected int src;
     private int status;
+
+    private byte[] bytePool;
 
     @ToByte(order = ToByte.LAST)
     private MessageId mId;
@@ -72,5 +75,21 @@ public abstract class InstantMessage implements Transimitable {
     public boolean equals(Object o) {
         return o instanceof InstantMessage && ((InstantMessage) o).mId.equals(mId);
 
+    }
+
+    public void generateBytepool(AbstractSerializer serializer) {
+        bytePool = serializer.buildWithObject(this);
+    }
+
+    public void cacheBytepool(byte[] bytes) {
+        this.bytePool = bytes;
+    }
+
+    boolean hasCacheBytepool() {
+        return bytePool != null;
+    }
+
+    public void consumeBytepool() {
+        bytePool = null;
     }
 }

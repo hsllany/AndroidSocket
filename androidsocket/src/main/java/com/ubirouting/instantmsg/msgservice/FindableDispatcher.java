@@ -7,6 +7,7 @@ import android.os.RemoteException;
 import com.ubirouting.instantmsg.basic.Findable;
 import com.ubirouting.instantmsg.msgs.InstantMessage;
 import com.ubirouting.instantmsg.msgs.MessageId;
+import com.ubirouting.instantmsg.serialization.AbstractSerializer;
 import com.ubirouting.instantmsg.utils.WeakList;
 
 import java.util.HashMap;
@@ -45,7 +46,7 @@ public final class FindableDispatcher {
         }
     }
 
-    public void dispatch(InstantMessage dispatchMessage) {
+    public void dispatch(InstantMessage dispatchMessage, AbstractSerializer serializer) {
         if (dispatchMessage.getMessageId().getUIId() == MessageId.NO_FINDABLE)
             return;
 
@@ -56,7 +57,7 @@ public final class FindableDispatcher {
                 int findableId = entry.getValue();
 
                 if (findableId == dispatchMessage.getMessageId().getUIId()) {
-                    Message msg = Transaction.getMessage(dispatchMessage, null, null, MsgService.MSG_RESPONSE_MESSAGE);
+                    Message msg = Transaction.getMessage(dispatchMessage, null, null, MsgService.MSG_RESPONSE_MESSAGE, serializer);
                     target = messenger;
                     try {
                         messenger.send(msg);
@@ -76,7 +77,7 @@ public final class FindableDispatcher {
                     Messenger activity = activityWeakList.get(i);
                     if (activity != null) {
                         if (target == null || target != activity) {
-                            Message msg = Transaction.getMessage(dispatchMessage, null, null, MsgService.MSG_RESPONSE_MESSAGE);
+                            Message msg = Transaction.getMessage(dispatchMessage, null, null, MsgService.MSG_RESPONSE_MESSAGE, serializer);
                             try {
                                 activity.send(msg);
                             } catch (RemoteException e) {

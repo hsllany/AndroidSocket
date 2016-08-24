@@ -20,6 +20,8 @@ import com.ubirouting.instantmsg.msgs.InstantMessage;
 import com.ubirouting.instantmsg.msgs.MessageId;
 import com.ubirouting.instantmsg.msgservice.MsgService;
 import com.ubirouting.instantmsg.msgservice.Transaction;
+import com.ubirouting.instantmsg.serialization.AbstractSerializer;
+import com.ubirouting.instantmsg.utils.Injection;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -37,11 +39,14 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
     private Messenger mServiceBinder;
     private volatile boolean isBound;
 
+    private AbstractSerializer serializer;
+
     @Override
     public void onCreate(Bundle savedInstanceState, PersistableBundle persistentState) {
         super.onCreate(savedInstanceState, persistentState);
         executeThread.start();
         mMessenger = new Messenger(new MessengerHandler(executeThread.getLooper()));
+        serializer = Injection.provideSerializer();
     }
 
     @Override
@@ -78,7 +83,7 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
                 mListenerList.put(msg.getMessageId(), l);
             }
 
-            Message handlerMessage = Transaction.getMessage(msg, mMessenger, this, MsgService.MSG_SEND_MESSAGE);
+            Message handlerMessage = Transaction.getMessage(msg, mMessenger, this, MsgService.MSG_SEND_MESSAGE, serializer);
 
             try {
                 mServiceBinder.send(handlerMessage);
@@ -159,10 +164,8 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
         public void handleMessage(android.os.Message msg) {
             super.handleMessage(msg);
 
-            if (msg.obj != null && msg.obj instanceof Transaction) {
-                InstantMessage dispatchInstantMessage = Transaction.getInstantMessage(msg);
-                onGetInstantMessageReply(dispatchInstantMessage);
-            }
+            InstantMessage dispatchInstantMessage = Transaction.getInstantMessage(msg, serializer);
+            onGetInstantMessageReply(dispatchInstantMessage);
         }
     }
 

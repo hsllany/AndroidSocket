@@ -1,13 +1,17 @@
 package com.ubirouting.instantmsg.serialization;
 
-import com.ubirouting.instantmsg.msgs.Transimitable;
+import com.ubirouting.instantmsg.msgs.InstantMessage;
+
+import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Yang Tao on 16/7/18.
  */
 public interface AbstractSerializer {
 
-    <T extends Transimitable> T buildViaBytes(byte[] rawBytes, Class<T> tClass);
+    @NotNull
+    Object buildViaBytes(@NotNull byte[] rawBytes);
 
-    byte[] buildWithObject(Transimitable transimitable);
+    @NotNull
+    byte[] buildWithObject(@NotNull InstantMessage message);
 }
