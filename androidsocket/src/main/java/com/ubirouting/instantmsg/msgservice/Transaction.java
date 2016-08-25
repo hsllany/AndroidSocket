@@ -8,6 +8,7 @@ import android.os.Parcelable;
 import com.ubirouting.instantmsg.basic.Findable;
 import com.ubirouting.instantmsg.msgs.InstantMessage;
 import com.ubirouting.instantmsg.serialization.AbstractSerializer;
+import com.ubirouting.instantmsg.utils.$Checkr;
 
 /**
  * @author Yang Tao on 16/8/17.
@@ -29,6 +30,7 @@ public class Transaction implements Parcelable {
     private byte[] transData;
 
     public Transaction(InstantMessage msg, AbstractSerializer serializer) {
+        $Checkr.notNull(msg, "can't be null");
         transData = serializer.buildWithObject(msg);
     }
 

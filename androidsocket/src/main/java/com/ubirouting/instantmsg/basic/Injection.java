@@ -1,4 +1,4 @@
-package com.ubirouting.instantmsg.utils;
+package com.ubirouting.instantmsg.basic;
 
 import com.ubirouting.instantmsg.serialization.DefaultSerializer;
 

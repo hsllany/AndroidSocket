@@ -29,17 +29,21 @@ public abstract class InstantMessage implements Transimitable {
     @ToByte(order = ToByte.LAST)
     private MessageId mId;
 
+    public InstantMessage(int source, int status, Findable findable) {
+        src = source;
+        this.status = status;
+        mId = new MessageId(findable);
+    }
+
     public InstantMessage() {
         src = SRC_CLIENT;
         status = STATUS_TO_BE_SEND;
-
         mId = new MessageId();
     }
 
     public InstantMessage(Findable findable) {
         src = SRC_CLIENT;
-        status = STATUS_TO_BE_SEND;
-
+        this.status = STATUS_TO_BE_SEND;
         mId = new MessageId(findable);
     }
 

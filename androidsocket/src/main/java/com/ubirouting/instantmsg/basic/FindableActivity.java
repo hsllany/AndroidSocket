@@ -13,6 +13,7 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.PersistableBundle;
 import android.os.RemoteException;
+import android.support.annotation.Nullable;
 import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
 
@@ -21,7 +22,6 @@ import com.ubirouting.instantmsg.msgs.MessageId;
 import com.ubirouting.instantmsg.msgservice.MsgService;
 import com.ubirouting.instantmsg.msgservice.Transaction;
 import com.ubirouting.instantmsg.serialization.AbstractSerializer;
-import com.ubirouting.instantmsg.utils.Injection;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -44,6 +44,14 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
     @Override
     public void onCreate(Bundle savedInstanceState, PersistableBundle persistentState) {
         super.onCreate(savedInstanceState, persistentState);
+        executeThread.start();
+        mMessenger = new Messenger(new MessengerHandler(executeThread.getLooper()));
+        serializer = Injection.provideSerializer();
+    }
+
+    @Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
         executeThread.start();
         mMessenger = new Messenger(new MessengerHandler(executeThread.getLooper()));
         serializer = Injection.provideSerializer();
@@ -77,6 +85,7 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
         bindService(intent, this, Context.BIND_AUTO_CREATE);
     }
 
+    @Override
     public final void sendMessage(InstantMessage msg, MessageConsumeListener l) {
         if (isBound) {
             synchronized (mListenerList) {
@@ -93,7 +102,8 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
         }
     }
 
-    public final void registerListener(Class<? extends InstantMessage> msgClass, MessageConsumeListener l) {
+    @Override
+    public final void registerMessageBroadcastListener(Class<? extends InstantMessage> msgClass, MessageConsumeListener l) {
         synchronized (mTypeList) {
             mTypeList.put(msgClass, l);
         }

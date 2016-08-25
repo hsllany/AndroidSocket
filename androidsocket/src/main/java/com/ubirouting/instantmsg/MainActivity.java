@@ -51,7 +51,7 @@ public class MainActivity extends FindableActivity {
         Intent i = new Intent(this, MsgService.class);
         startService(i);
 
-        registerListener(Heartbeat.class, new MessageConsumeListener() {
+        registerMessageBroadcastListener(Heartbeat.class, new MessageConsumeListener() {
             @Override
             public void consume(InstantMessage msg) {
                 sb.append(msg + "\n");
