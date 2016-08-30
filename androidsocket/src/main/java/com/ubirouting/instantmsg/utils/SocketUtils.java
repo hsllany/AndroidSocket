@@ -1,4 +1,4 @@
-package com.ubirouting.instantmsg.msgservice;
+package com.ubirouting.instantmsg.utils;
 
 import java.io.IOException;
 import java.io.InputStream;
