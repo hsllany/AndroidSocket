@@ -408,6 +408,7 @@ public class MsgService extends Service {
                     int findableId = msg.arg1;
                     msgDispatcher.register(msg.replyTo, findableId);
                     addToSendPendingQueue(getInstantMessage(msg, Injection.provideSerializer()));
+                    break;
                 default:
                     super.handleMessage(msg);
             }
