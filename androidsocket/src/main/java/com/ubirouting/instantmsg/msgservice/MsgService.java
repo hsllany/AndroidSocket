@@ -16,13 +16,13 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
+import com.ubirouting.instantmsg.basic.Injection;
 import com.ubirouting.instantmsg.msgs.Heartbeat;
 import com.ubirouting.instantmsg.msgs.InstantMessage;
 import com.ubirouting.instantmsg.msgs.MessageId;
 import com.ubirouting.instantmsg.serialization.AbstractSerializer;
 import com.ubirouting.instantmsg.serialization.bytelib.PrimaryDatas;
 import com.ubirouting.instantmsg.utils.$Checkr;
-import com.ubirouting.instantmsg.basic.Injection;
 import com.ubirouting.instantmsg.utils.NetworkUtils;
 import com.ubirouting.instantmsg.utils.SocketUtils;
 
@@ -34,7 +34,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-import static com.ubirouting.instantmsg.msgservice.Transaction.*;
+import static com.ubirouting.instantmsg.msgservice.Transaction.getInstantMessage;
 
 /**
  * Work as a service, receive the instantMessage from UI and send to remote server, and get response from
@@ -273,6 +273,14 @@ public class MsgService extends Service {
         }
 
         socket = null;
+    }
+
+    public int getReadCount() {
+        return readRound;
+    }
+
+    public int getWriteCount() {
+        return writeRound;
     }
 
     private class ReadingThread extends Thread {

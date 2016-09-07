@@ -6,8 +6,6 @@ class Utils {
     private Utils() {
     }
 
-    ;
-
     static Method getAccessibleMethod(String methodName, Class<?> clazz) {
         try {
             Method ms = clazz.getDeclaredMethod(methodName);
