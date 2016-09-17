@@ -4,11 +4,11 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
 
-import com.ubirouting.instantmsglib.basic.Findable;
+import com.ubirouting.instantmsglib.Findable;
+import com.ubirouting.instantmsglib.basic.WeakList;
 import com.ubirouting.instantmsglib.msgs.InstantMessage;
 import com.ubirouting.instantmsglib.msgs.MessageId;
 import com.ubirouting.instantmsglib.serialization.AbstractSerializer;
-import com.ubirouting.instantmsglib.utils.WeakList;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -57,7 +57,7 @@ public final class FindableDispatcher {
                 int findableId = entry.getValue();
 
                 if (findableId == dispatchMessage.getMessageId().getUIId()) {
-                    Message msg = Transaction.getMessage(dispatchMessage, null, null, MsgService.MSG_RESPONSE_MESSAGE, serializer);
+                    Message msg = InstantMessageConverter.getMessage(dispatchMessage, null, null, serializer);
                     target = messenger;
                     try {
                         messenger.send(msg);
@@ -77,7 +77,7 @@ public final class FindableDispatcher {
                     Messenger activity = activityWeakList.get(i);
                     if (activity != null) {
                         if (target == null || target != activity) {
-                            Message msg = Transaction.getMessage(dispatchMessage, null, null, MsgService.MSG_RESPONSE_MESSAGE, serializer);
+                            Message msg = InstantMessageConverter.getMessage(dispatchMessage, null, null, serializer);
                             try {
                                 activity.send(msg);
                             } catch (RemoteException e) {

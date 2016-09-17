@@ -1,6 +1,6 @@
 package com.ubirouting.instantmsglib.msgs;
 
-import com.ubirouting.instantmsglib.basic.Findable;
+import com.ubirouting.instantmsglib.Findable;
 import com.ubirouting.instantmsglib.serialization.bytelib.PrimaryDatas;
 import com.ubirouting.instantmsglib.serialization.bytelib.ToByte;
 
@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * @author Yang Tao on 16/6/21.
  */
-public final class MessageId implements Transimitable {
+public final class MessageId implements Transmittable {
 
     public static final int NO_FINDABLE = Integer.MIN_VALUE;
     public static long MACHINE_CODE;

@@ -1,4 +1,4 @@
-package com.ubirouting.instantmsglib.utils;
+package com.ubirouting.instantmsglib;
 
 import java.util.Arrays;
 

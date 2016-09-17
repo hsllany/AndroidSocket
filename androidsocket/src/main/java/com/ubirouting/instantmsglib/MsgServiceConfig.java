@@ -1,7 +1,5 @@
 package com.ubirouting.instantmsglib;
 
-import com.ubirouting.instantmsglib.utils.$Checkr;
-
 /**
  * @author Yang Tao on 16/9/12.
  */

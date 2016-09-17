@@ -1,14 +1,14 @@
 package com.ubirouting.instantmsglib.msgs;
 
-import com.ubirouting.instantmsglib.basic.Findable;
+import com.ubirouting.instantmsglib.$Checkr;
+import com.ubirouting.instantmsglib.Findable;
 import com.ubirouting.instantmsglib.serialization.AbstractSerializer;
 import com.ubirouting.instantmsglib.serialization.bytelib.ToByte;
-import com.ubirouting.instantmsglib.utils.$Checkr;
 
 /**
  * @author Yang Tao on 16/6/30.
  */
-public abstract class InstantMessage implements Transimitable {
+public abstract class InstantMessage implements Transmittable {
     public static final int SRC_SERVER = 0x01;
     public static final int SRC_CLIENT = 0x02;
 
@@ -82,7 +82,7 @@ public abstract class InstantMessage implements Transimitable {
     }
 
     public void generateBytepool(AbstractSerializer serializer) {
-        bytePool = serializer.buildWithObject(this);
+        bytePool = serializer.buildBytes(this);
     }
 
     public void cacheBytepool(byte[] bytes) {

@@ -1,12 +1,13 @@
 package com.ubirouting.instantmsglib.serialization;
 
+import com.ubirouting.instantmsglib.MsgServiceLoader;
 import com.ubirouting.instantmsglib.msgs.InstantMessage;
-import com.ubirouting.instantmsglib.msgs.MessageFactory;
 import com.ubirouting.instantmsglib.serialization.bytelib.ByteUtils;
 import com.ubirouting.instantmsglib.serialization.bytelib.PrimaryDatas;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.nio.charset.Charset;
 import java.util.Arrays;
 
 /**
@@ -14,35 +15,34 @@ import java.util.Arrays;
  */
 public class DefaultSerializer implements AbstractSerializer {
 
-    private static DefaultSerializer instance;
-
-    public static DefaultSerializer getInstance() {
-        if (instance == null) {
-            synchronized (DefaultSerializer.class) {
-                if (instance == null)
-                    instance = new DefaultSerializer();
-            }
-        }
-
-        return instance;
-    }
-
     @Override
-    public Object buildViaBytes(@NotNull byte[] rawBytes) {
-        int code = PrimaryDatas.b2i(rawBytes, 0);
-        byte[] msgByte = Arrays.copyOfRange(rawBytes, 4, rawBytes.length);
-        Class<?> clazz = MessageFactory.messageTypeFromCode(code);
+    @NotNull
+    public Object buildObject(@NotNull byte[] rawBytes) {
+        int codeStringLength = PrimaryDatas.b2i(rawBytes, 0);
+        String protocol = new String(rawBytes, 4, codeStringLength, Charset.forName("UTF-8"));
+        byte[] msgByte = Arrays.copyOfRange(rawBytes, 4 + codeStringLength, rawBytes.length);
+        Class<?> clazz = null;
+        try {
+            clazz = MsgServiceLoader.messageTypeFromProtocolDelegate(protocol);
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+            throw new Error("wrong code");
+        }
         return ByteUtils.toObject(msgByte, clazz);
     }
 
     @Override
-    public byte[] buildWithObject(@NotNull InstantMessage message) {
-        int code = MessageFactory.codeFromMessage(message);
+    @NotNull
+    public byte[] buildBytes(@NotNull InstantMessage message) {
+        String protocol = MsgServiceLoader.protocolFromMessageDelegate(message);
         byte[] msgBytes = ByteUtils.toByte(message);
+        byte[] protocolBytes = protocol.getBytes(Charset.forName("UTF-8"));
 
-        byte[] encodeBytes = new byte[msgBytes.length + 4];
-        PrimaryDatas.i2b(code, encodeBytes, 0);
-        System.arraycopy(msgBytes, 0, encodeBytes, 4, msgBytes.length);
+        byte[] encodeBytes = new byte[msgBytes.length + 4 + protocolBytes.length];
+
+        PrimaryDatas.i2b(protocolBytes.length, encodeBytes, 0);
+        System.arraycopy(protocolBytes, 0, encodeBytes, 4, protocolBytes.length);
+        System.arraycopy(msgBytes, 0, encodeBytes, 4 + protocolBytes.length, msgBytes.length);
         return encodeBytes;
     }
 }

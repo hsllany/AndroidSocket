@@ -1,4 +1,4 @@
-package com.ubirouting.instantmsglib.utils;
+package com.ubirouting.instantmsglib.msgservice;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -7,9 +7,9 @@ import java.io.OutputStream;
 /**
  * @author Yang Tao on 16/8/12.
  */
-public class SocketUtils {
+class SocketHelper {
 
-    private SocketUtils() {
+    private SocketHelper() {
     }
 
     public static void readBytes(InputStream in, byte[] buffer, int readLength) throws IOException {

@@ -3,7 +3,7 @@ package com.ubirouting.testinstant;
 import android.os.Bundle;
 import android.util.Log;
 
-import com.ubirouting.instantmsglib.basic.FindableActivity;
+import com.ubirouting.instantmsglib.FindableActivity;
 
 /**
  * @author Yang Tao on 16/6/20.
