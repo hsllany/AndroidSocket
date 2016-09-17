@@ -1,4 +1,4 @@
-package com.ubirouting.instantmsglib.utils;
+package com.ubirouting.instantmsglib.msgservice;
 
 import android.content.Context;
 import android.net.ConnectivityManager;

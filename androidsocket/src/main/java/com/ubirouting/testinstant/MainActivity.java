@@ -9,11 +9,12 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.ubirouting.instantmsg.R;
+import com.ubirouting.instantmsglib.FindableActivity;
+import com.ubirouting.instantmsglib.MessageConsumeListener;
+import com.ubirouting.instantmsglib.MsgProtocol;
 import com.ubirouting.instantmsglib.MsgServiceConfig;
 import com.ubirouting.instantmsglib.MsgServiceLoader;
-import com.ubirouting.instantmsglib.R;
-import com.ubirouting.instantmsglib.basic.FindableActivity;
-import com.ubirouting.instantmsglib.basic.MessageConsumeListener;
 import com.ubirouting.instantmsglib.msgs.Heartbeat;
 import com.ubirouting.instantmsglib.msgs.InstantMessage;
 import com.ubirouting.instantmsglib.msgservice.MsgService;
@@ -27,7 +28,9 @@ public class MainActivity extends FindableActivity {
     protected void onCreate(Bundle savedInstanceState) {
         // init code
         MsgServiceConfig config = (new MsgServiceConfig.Builder()).withHostAndPort("192.168.1.105", 8001).build();
-        MsgServiceLoader.init(this, config);
+        MsgServiceLoader.init(this, config, new MsgProtocol() {
+
+        });
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);

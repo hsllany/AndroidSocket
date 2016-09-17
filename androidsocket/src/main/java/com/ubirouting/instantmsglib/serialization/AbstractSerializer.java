@@ -10,8 +10,8 @@ import org.jetbrains.annotations.NotNull;
 public interface AbstractSerializer {
 
     @NotNull
-    Object buildViaBytes(@NotNull byte[] rawBytes);
+    Object buildObject(@NotNull byte[] rawBytes);
 
     @NotNull
-    byte[] buildWithObject(@NotNull InstantMessage message);
+    byte[] buildBytes(@NotNull InstantMessage message);
 }

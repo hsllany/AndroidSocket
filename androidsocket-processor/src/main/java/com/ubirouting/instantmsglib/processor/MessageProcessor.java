@@ -40,7 +40,7 @@ import javax.tools.Diagnostic;
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public final class MessageProcessor extends AbstractProcessor {
 
-    private static final ClassName MESSAGE_TYPE = ClassName.get("com.ubirouting.instantmsg.msgs", "InstantMessage");
+    private static final ClassName MESSAGE_TYPE = ClassName.get("com.ubirouting.instantmsglib.msgs", "InstantMessage");
     private static final ClassName CLASS_TYPE = ClassName.get(Class.class);
     private Types typeUtils;
     private Elements elementUtils;
@@ -61,6 +61,8 @@ public final class MessageProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+        messager.printMessage(Diagnostic.Kind.NOTE, "-----start");
+        System.out.println("start to build----");
 
         messageAnnotationList.clear();
 
@@ -83,10 +85,11 @@ public final class MessageProcessor extends AbstractProcessor {
         buildMessageFactoryJava(builder);
         buildMessageCodeJava(builder);
 
-        JavaFile javaFile = JavaFile.builder("com.ubirouting.instantmsg.msgs", builder.build()).build();
+        JavaFile javaFile = JavaFile.builder("com.ubirouting.instantmsglib.msgs", builder.build()).build();
         try {
             javaFile.writeTo(filer);
         } catch (IOException e) {
+            e.printStackTrace();
         }
         return true;
     }

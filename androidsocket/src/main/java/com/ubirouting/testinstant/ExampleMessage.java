@@ -1,9 +1,9 @@
 package com.ubirouting.testinstant;
 
-import com.ubirouting.instantmsg.processor.MessageAnnotation;
-import com.ubirouting.instantmsg.processor.MessageType;
-import com.ubirouting.instantmsglib.basic.Findable;
+import com.ubirouting.instantmsglib.Findable;
 import com.ubirouting.instantmsglib.msgs.InstantMessage;
+import com.ubirouting.instantmsglib.processor.MessageAnnotation;
+import com.ubirouting.instantmsglib.processor.MessageType;
 import com.ubirouting.instantmsglib.serialization.bytelib.ToByte;
 
 /**

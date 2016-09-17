@@ -1,5 +1,6 @@
 package com.ubirouting.instantmsglib.basic;
 
+import com.ubirouting.instantmsglib.serialization.AbstractSerializer;
 import com.ubirouting.instantmsglib.serialization.DefaultSerializer;
 
 /**
@@ -10,8 +11,8 @@ public class Injection {
     private Injection() {
     }
 
-    public static DefaultSerializer provideSerializer() {
-        return DefaultSerializer.getInstance();
+    public static AbstractSerializer provideSerializer() {
+        return new DefaultSerializer();
     }
 
 }

@@ -1,4 +1,4 @@
-package com.ubirouting.instantmsglib.basic;
+package com.ubirouting.instantmsglib;
 
 import android.content.ComponentName;
 import android.content.Context;
@@ -17,10 +17,11 @@ import android.support.annotation.Nullable;
 import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
 
+import com.ubirouting.instantmsglib.basic.Injection;
 import com.ubirouting.instantmsglib.msgs.InstantMessage;
 import com.ubirouting.instantmsglib.msgs.MessageId;
+import com.ubirouting.instantmsglib.msgservice.InstantMessageConverter;
 import com.ubirouting.instantmsglib.msgservice.MsgService;
-import com.ubirouting.instantmsglib.msgservice.Transaction;
 import com.ubirouting.instantmsglib.serialization.AbstractSerializer;
 
 import java.util.HashMap;
@@ -90,7 +91,7 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
                 mListenerList.put(msg.getMessageId(), l);
             }
 
-            Message handlerMessage = Transaction.getMessage(msg, mMessenger, this, MsgService.MSG_SEND_MESSAGE, serializer);
+            Message handlerMessage = InstantMessageConverter.getMessage(msg, mMessenger, this, serializer);
 
             try {
                 mServiceBinder.send(handlerMessage);
@@ -172,7 +173,7 @@ public abstract class FindableActivity extends AppCompatActivity implements Find
         public void handleMessage(android.os.Message msg) {
             super.handleMessage(msg);
 
-            InstantMessage dispatchInstantMessage = Transaction.getInstantMessage(msg, serializer);
+            InstantMessage dispatchInstantMessage = InstantMessageConverter.getInstantMessage(msg, serializer);
             onGetInstantMessageReply(dispatchInstantMessage);
         }
     }

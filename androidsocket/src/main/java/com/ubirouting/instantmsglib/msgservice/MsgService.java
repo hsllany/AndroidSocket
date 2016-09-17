@@ -16,6 +16,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
+import com.ubirouting.instantmsglib.$Checkr;
 import com.ubirouting.instantmsglib.MsgServiceLoader;
 import com.ubirouting.instantmsglib.basic.Injection;
 import com.ubirouting.instantmsglib.msgs.Heartbeat;
@@ -23,9 +24,6 @@ import com.ubirouting.instantmsglib.msgs.InstantMessage;
 import com.ubirouting.instantmsglib.msgs.MessageId;
 import com.ubirouting.instantmsglib.serialization.AbstractSerializer;
 import com.ubirouting.instantmsglib.serialization.bytelib.PrimaryDatas;
-import com.ubirouting.instantmsglib.utils.$Checkr;
-import com.ubirouting.instantmsglib.utils.NetworkUtils;
-import com.ubirouting.instantmsglib.utils.SocketUtils;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -35,8 +33,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-import static com.ubirouting.instantmsglib.msgservice.Transaction.getInstantMessage;
-
 /**
  * Work as a service, receive the instantMessage from UI and send to remote server, and get response from
  * remote server.
@@ -45,26 +41,41 @@ import static com.ubirouting.instantmsglib.msgservice.Transaction.getInstantMess
  */
 public class MsgService extends Service {
 
-    public static final int MSG_SEND_MESSAGE = 0x01;
-
-    public static final int MSG_RESPONSE_MESSAGE = 0x02;
-
     private static final String TAG = "MsgService";
 
     private static final float INCREMENT_HEARTBEAT_INTERVAL = (MsgServiceLoader.config().maxHeartbeatTime() - MsgServiceLoader.config().minHeartbeatTime()) / 10.f;
 
-    // to cache the instantMessage to be send, usually send by UI component.
-    private final BlockingQueue<InstantMessage> sendMessagesQueue = new LinkedBlockingQueue<>();
+    /**
+     * To cache the instantMessage to be send, usually send by UI component.
+     * The message in sendMsgPendingQueue will besend via {@link #sendingThread}.
+     */
+    private final BlockingQueue<InstantMessage> sendMsgPendingQueue = new LinkedBlockingQueue<>();
 
-    // to cache the instantMessage to be dispatched
-    private final BlockingQueue<InstantMessage> dispatchMessagesQueue = new LinkedBlockingQueue<>();
+    /**
+     * To cache the message which has been received from server by {@link #readingThread}.
+     * And the message will be dispatched via {@link #dispatchThread}.
+     */
+    private final BlockingQueue<InstantMessage> dispatchMsgPendingQueue = new LinkedBlockingQueue<>();
 
+    /**
+     * Thread which is responsible for sending message in {@link #sendMsgPendingQueue}
+     */
     private SendingThread sendingThread;
 
+    /**
+     * Thread which is responsible for reading message from server.
+     * The message from server will be cached {@link #sendMsgPendingQueue}
+     */
     private ReadingThread readingThread;
 
+    /**
+     * Dispatch the messages in {@link #dispatchMsgPendingQueue} to Messengers of different activity.
+     */
     private DispatchThread dispatchThread;
 
+    /**
+     * Socket that connect with server.
+     */
     private Socket socket;
 
     // semaphore wait for send to connect
@@ -75,11 +86,11 @@ public class MsgService extends Service {
 
     private int heartbeatTime = 0;
 
-    private int continusHeartbeatCount = 0;
+    private int continuousHeartbeatCount = 0;
 
-    private int readRound = 0;
+    private int readRoundCount = 0;
 
-    private int writeRound = 0;
+    private int sendRoundCount = 0;
 
     private AbstractSerializer abstractSerializer;
 
@@ -101,7 +112,7 @@ public class MsgService extends Service {
     }
 
     private static InstantMessage parseMsgFromRawBytes(byte[] msgBytes, AbstractSerializer abstractSerializer) {
-        return (InstantMessage) abstractSerializer.buildViaBytes(msgBytes);
+        return (InstantMessage) abstractSerializer.buildObject(msgBytes);
     }
 
     protected static void debug(String format, Object... objects) {
@@ -182,7 +193,7 @@ public class MsgService extends Service {
      * @param instantMessage to send.
      */
     protected final void addToSendPendingQueue(@NonNull InstantMessage instantMessage) {
-        sendMessagesQueue.offer(instantMessage);
+        sendMsgPendingQueue.offer(instantMessage);
     }
 
 
@@ -194,19 +205,19 @@ public class MsgService extends Service {
      */
     protected final void sendMessageToSocketStream(@NonNull InstantMessage instantMessage) throws IOException {
         $Checkr.notNull(instantMessage, "instant message can't be null");
-        byte[] bytes = abstractSerializer.buildWithObject(instantMessage);
+        byte[] bytes = abstractSerializer.buildBytes(instantMessage);
         byte[] actualBytes = new byte[bytes.length + 4];
         PrimaryDatas.i2b(bytes.length, actualBytes, 0);
         System.arraycopy(bytes, 0, actualBytes, 4, bytes.length);
-        SocketUtils.sendBytes(socket.getOutputStream(), actualBytes);
+        SocketHelper.sendBytes(socket.getOutputStream(), actualBytes);
     }
 
     /**
-     * try to reconnect to remote server.
-     *
-     * @return true if connected
+     * Try to reconnect to remote server.
+     * If any of the message's timeout is reached,
+     * then this message will be send back to UI with status set as STATUS_FAILED.
      */
-    private void reconnect() {
+    private void reconnectAndHandleTheTimeoutMessage() {
         while (true) {
             if (NetworkUtils.isNetworkAvailable(this)) {
                 if (connect())
@@ -214,15 +225,15 @@ public class MsgService extends Service {
             }
 
             // Test the timeout status of the instantMessage. If timeout happens, will send it back to Client process.
-            synchronized (sendMessagesQueue) {
-                Iterator<InstantMessage> itr = sendMessagesQueue.iterator();
+            synchronized (sendMsgPendingQueue) {
+                Iterator<InstantMessage> itr = sendMsgPendingQueue.iterator();
                 while (itr.hasNext()) {
                     InstantMessage msg = itr.next();
 
                     if (System.currentTimeMillis() - msg.getTimestamp() > MsgServiceLoader.config().megSendTimeOut()) {
                         itr.remove();
                         msg.updateStatus(InstantMessage.STATUS_FAILED);
-                        dispatchMessagesQueue.offer(msg);
+                        dispatchMsgPendingQueue.offer(msg);
                     }
                 }
             }
@@ -244,7 +255,7 @@ public class MsgService extends Service {
             socket = new Socket(MsgServiceLoader.config().host(), MsgServiceLoader.config().port());
             socket.setSoTimeout(MsgServiceLoader.config().socketTimeOut());
             heartbeatTime = MsgServiceLoader.config().minHeartbeatTime();
-            continusHeartbeatCount = 0;
+            continuousHeartbeatCount = 0;
             debug("[CONNECTING SUCCESSFULLY");
             return true;
         } catch (IOException e) {
@@ -262,7 +273,10 @@ public class MsgService extends Service {
 
 
     private void calculateHeartbeatTime() {
-        heartbeatTime = (int) (MsgServiceLoader.config().minHeartbeatTime() + INCREMENT_HEARTBEAT_INTERVAL * continusHeartbeatCount);
+        int continuousHeartbeatCountUpperBound = continuousHeartbeatCount;
+        if (continuousHeartbeatCountUpperBound > 10)
+            continuousHeartbeatCountUpperBound = 10;
+        heartbeatTime = (int) (MsgServiceLoader.config().minHeartbeatTime() + INCREMENT_HEARTBEAT_INTERVAL * continuousHeartbeatCountUpperBound);
     }
 
     private void closeSocket() {
@@ -276,14 +290,6 @@ public class MsgService extends Service {
         socket = null;
     }
 
-    public int getReadCount() {
-        return readRound;
-    }
-
-    public int getWriteCount() {
-        return writeRound;
-    }
-
     private class ReadingThread extends Thread {
         private volatile boolean isRunFlag = true;
 
@@ -291,7 +297,7 @@ public class MsgService extends Service {
         public void run() {
             while (isRunFlag) {
                 try {
-                    // wait for the sendingThread to reconnect
+                    // wait for the sendingThread to reconnectAndHandleTheTimeoutMessage
                     readDelaySemaphore.acquire();
                 } catch (InterruptedException e) {
                     return;
@@ -302,20 +308,20 @@ public class MsgService extends Service {
                 while (true) {
                     try {
                         // read the first 4 byte to get the length of the instantMessage
-                        SocketUtils.readBytes(socket.getInputStream(), msgLengthBuffer, 4);
+                        SocketHelper.readBytes(socket.getInputStream(), msgLengthBuffer, 4);
                         int msgLength = PrimaryDatas.b2i(msgLengthBuffer, 0);
                         byte[] msgBuffer = new byte[PrimaryDatas.b2i(msgLengthBuffer, 0)];
 
-                        SocketUtils.readBytes(socket.getInputStream(), msgBuffer, msgLength);
+                        SocketHelper.readBytes(socket.getInputStream(), msgBuffer, msgLength);
                         InstantMessage instantMessage = parseMsgFromRawBytes(msgBuffer, abstractSerializer);
                         if (instantMessage != null) {
                             debug("[RECEIVING]:" + instantMessage.toString());
-                            dispatchMessagesQueue.put(instantMessage);
+                            dispatchMsgPendingQueue.put(instantMessage);
                         } else {
 
                         }
 
-                        readRound++;
+                        readRoundCount++;
                     } catch (IOException | InterruptedException e) {
                         closeSocket();
                         e.printStackTrace();
@@ -336,7 +342,7 @@ public class MsgService extends Service {
         public void run() {
             while (isRunFlag) {
                 try {
-                    InstantMessage msg = dispatchMessagesQueue.take();
+                    InstantMessage msg = dispatchMsgPendingQueue.take();
 
                     if (msg != null) {
                         hookBeforeDispatch(msg);
@@ -360,11 +366,11 @@ public class MsgService extends Service {
         public void run() {
             debug("[WAIT FOR MESSAGE TO SEND]");
             while (isRunFlag) {
-                debug("[SEND ROUND]");
+                debug("[SEND ROUND" + sendRoundCount + "]");
                 if (socket == null || !socket.isConnected()) {
 
                     // will block until connection has been established
-                    reconnect();
+                    reconnectAndHandleTheTimeoutMessage();
 
                     readDelaySemaphore.release();
 
@@ -372,7 +378,7 @@ public class MsgService extends Service {
                         InstantMessage sendMsg;
 
                         try {
-                            sendMsg = sendMessagesQueue.poll(heartbeatTime / 1000, TimeUnit.SECONDS);
+                            sendMsg = sendMsgPendingQueue.poll(heartbeatTime / 1000, TimeUnit.SECONDS);
                         } catch (InterruptedException e) {
                             closeSocket();
                             break;
@@ -381,17 +387,14 @@ public class MsgService extends Service {
                         try {
                             if (sendMsg != null) {
                                 sendMessageToSocketStream(sendMsg);
-                                continusHeartbeatCount = 0;
+                                continuousHeartbeatCount = 0;
                             } else {
                                 sendMessageToSocketStream(new Heartbeat());
-                                continusHeartbeatCount++;
-                                if (continusHeartbeatCount > 10)
-                                    continusHeartbeatCount = 10;
-
+                                continuousHeartbeatCount++;
                             }
 
                             calculateHeartbeatTime();
-                            writeRound++;
+                            sendRoundCount++;
                         } catch (IOException e) {
                             closeSocket();
                             break;
@@ -415,10 +418,10 @@ public class MsgService extends Service {
         @Override
         public void handleMessage(android.os.Message msg) {
             switch (msg.what) {
-                case MSG_SEND_MESSAGE:
+                case InstantMessageConverter.MSG_WHAT:
                     int findableId = msg.arg1;
                     msgDispatcher.register(msg.replyTo, findableId);
-                    addToSendPendingQueue(getInstantMessage(msg, Injection.provideSerializer()));
+                    addToSendPendingQueue(InstantMessageConverter.getInstantMessage(msg, Injection.provideSerializer()));
                     break;
                 default:
                     super.handleMessage(msg);

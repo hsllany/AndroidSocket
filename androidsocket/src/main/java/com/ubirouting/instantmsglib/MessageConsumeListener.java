@@ -1,4 +1,4 @@
-package com.ubirouting.instantmsglib.basic;
+package com.ubirouting.instantmsglib;
 
 import com.ubirouting.instantmsglib.msgs.InstantMessage;
 
